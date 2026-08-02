@@ -6,11 +6,13 @@
   <string>com.cdit.steuerhorn.backlight</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/usr/bin/env</string>
-    <string>python3</string>
+    <string>/opt/homebrew/bin/uv</string>
+    <string>run</string>
     <string>/Users/caseyromkes/dev/steuerhorn/backlight/keylight.py</string>
     <string>auto</string>
   </array>
+  <key>StandardErrorPath</key>
+  <string>/tmp/steuerhorn-backlight.log</string>
   <!-- auto = pick on/off from the hour, so a run at any trigger self-corrects -->
   <key>StartCalendarInterval</key>
   <array>
