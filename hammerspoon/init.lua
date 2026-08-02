@@ -1,12 +1,17 @@
 -- keychron-q11 — Q11 Ultra signal-key router. Runs on the Mac the keyboard
--- is attached to; herdr lives on cc1 and is reached over ssh.
--- The keyboard sends dumb F13–F23 signals (bound in Keychron Launcher,
--- see docs/launcher-keymap.md); this file decides what they mean.
+-- is attached to. The keyboard sends dumb F13–F20 signals (bound in
+-- Keychron Launcher, see docs/launcher-keymap.md); this file decides what
+-- they mean.
 
+-- ── config ──────────────────────────────────────────────────────────────
+-- Optional: an ssh host running herdr (terminal workspace manager) for
+-- real workspace/split navigation. Set to nil if you don't use herdr —
+-- everything degrades to plain Cmd+N / tab-cycling keystrokes.
 local REMOTE = "cc1"
 local REMOTE_HELPER = "dev/keychron-q11/bin/q11-herdr"
--- Terminals showing the cc1/herdr session, in preference order.
+-- Terminals to treat as "the cockpit", in preference order.
 local TERMINALS = { "dev.warp.Warp-Stable", "com.googlecode.iterm2" }
+-- ────────────────────────────────────────────────────────────────────────
 
 local function terminalFrontmost()
   local app = hs.application.frontmostApplication()
@@ -27,6 +32,10 @@ end
 -- ControlPersist keeps one multiplexed connection warm so encoder detents
 -- cost ~tens of ms, not a full ssh handshake each.
 local function herdr(args, fallback)
+  if not REMOTE then
+    if fallback then fallback() end
+    return
+  end
   local sshArgs = {
     "-o", "BatchMode=yes",
     "-o", "ConnectTimeout=2",

@@ -1,69 +1,85 @@
 # keychron-q11
 
-*Host-side daemon & routing for the Keychron Q11 Ultra 8K (split, M1–M5
-macro column, two knobs): workspace keys, context-aware encoders, and
-scheduled backlight.*
-
-The keyboard is configured **once** in [Keychron Launcher](https://launcher.keychron.com)
-to send dumb signal keys (F13–F23, see `docs/launcher-keymap.md`). A single
-Hammerspoon config then routes them by context:
-
-| Signal        | Context      | Action                                          |
-| ------------- | ------------ | ----------------------------------------------- |
-| M1–M5         | anywhere     | focus Warp + herdr workspace 1–5 (fallback: Warp tab N) |
-| left knob     | Warp         | walk herdr splits; at the edge, next/prev workspace |
-| left knob     | elsewhere    | macOS Spaces left/right                         |
-| left knob ⏷   | Warp         | zoom the focused split                          |
-| left knob ⏷   | elsewhere    | Mission Control                                 |
-| right knob    | base layer   | system volume (bound on-keyboard, no host code) |
-| fn+right knob | anywhere     | Spotify app volume / play-pause                 |
-
-Gotcha worth knowing: bare F14/F15 are macOS's legacy display-brightness
-keys and never reach `hs.hotkey` — M2/M3 are captured by an event tap that
-swallows the keypress instead.
-
-## Topology — two Macs
-
-The keyboard (and Spotify, and the Launcher/WebHID session) is attached to
-the **local Mac**; the herdr server runs on **cc1**. Hammerspoon therefore
-runs locally and reaches herdr via `ssh cc1 dev/keychron-q11/bin/q11-herdr`
-(multiplexed with ControlPersist, so encoder detents don't pay a handshake).
-No fake keystrokes into the terminal — real socket API on cc1.
+**Host-side control for the Keychron Q11 Ultra 8K on macOS** — turn the
+split keyboard's macro column and two knobs into workspace keys,
+context-aware encoders, and a backlight that follows the clock. Includes
+the first published host-control protocol for Keychron's ZMK-based Ultra
+series ([docs/protocol.md](docs/protocol.md)).
 
 ```
-Q11 Ultra ──USB/2.4G──▶ local Mac: Hammerspoon router ──ssh──▶ cc1: herdr
-                                   └─ Spotify / Spaces / keylight.py locally
+Q11 Ultra ──USB/2.4G──▶ Hammerspoon router ──▶ terminal / Spaces / Spotify
+                        keylight.py (launchd) ──▶ backlight off by day, on by night
 ```
 
-## Install (on the local Mac, not cc1)
+## What you get
 
-```bash
-git clone <this repo> ~/dev/keychron-q11 && ~/dev/keychron-q11/install.sh
-```
+| Control | Context | Action |
+| --- | --- | --- |
+| M1–M5 | anywhere | jump to terminal workspace 1–5 |
+| left knob | terminal | walk splits, then cycle workspaces |
+| left knob | elsewhere | macOS Spaces left/right |
+| left knob press | terminal / elsewhere | zoom split / Mission Control |
+| right knob (base) | anywhere | ↑ / ↓ / Enter — drive TUI menus (Claude Code, fzf, …) |
+| right knob (scroll layer) | anywhere | scroll under pointer; press = jump to bottom |
+| right knob (Spotify layer) | anywhere | Spotify app volume / play-pause — independent of system volume |
+| backlight | 08:00–18:00 | off during the day, restored at night (launchd) |
 
-Then do the one-time Launcher keymap (`docs/launcher-keymap.md`).
-Requires non-interactive `ssh cc1` (BatchMode) to work — 1Password agent
-prompts will make the workspace keys fall back to Cmd+N until unlocked.
+Workspace navigation speaks to **herdr** (a terminal workspace manager)
+over its socket API — optionally on a remote host via multiplexed ssh.
+**No herdr? Everything degrades to plain `Cmd+N` / tab-cycling
+keystrokes** — set `REMOTE = nil` in `hammerspoon/init.lua`.
 
-## Backlight day/night (`backlight/`) — working
+## The protocol discovery
 
-Despite running ZMK, the Ultra series speaks the **VIA v3 custom-values
-protocol** on HID usage page `0xFF60` — reverse-engineered 2026-08-02 with
-`backlight/sniff-helper.js`, documented in `docs/protocol.md` (no published
-prior art existed). `keylight.py` (uv script, hidapi) sets the RGB-matrix
-effect: `0` = off; "on" restores the last-seen effect from
-`~/.local/state/keychron-q11-effect`.
+The Ultra 8K series runs Keychron's ZMK fork, so none of the QMK-era
+host tools (VIA app, OpenRGB) apply — and no host-control tooling
+existed. It turns out the firmware **implements the VIA v3 custom-values
+protocol** on the `0xFF60` vendor HID collection: cmd `0x07/0x08/0x09`
+(set/get/save), channel `0x03` = RGB matrix, value `0x02` = effect where
+`0` means off. Works identically through the 2.4G receiver and wired.
+Full notes, captured with a 30-line DevTools monkey-patch:
+[docs/protocol.md](docs/protocol.md) · capture tool:
+[backlight/sniff-helper.js](backlight/sniff-helper.js)
 
-Deployed as launchd agent `com.cdit.keychron-q11.backlight`: off 08:00,
-on 18:00, `auto` self-corrects on boot/wake. Manual override any time:
+`backlight/keylight.py` uses it for scheduled day/night backlight — it
+remembers your current effect before switching off and restores it after:
 
 ```bash
 uv run backlight/keylight.py on|off|status
 ```
 
-Gotcha: an open Launcher tab shares the HID interface and races read-backs.
+## Install
 
-## Later, when it has proven itself
+Requires macOS, [Homebrew](https://brew.sh), and for the backlight
+[uv](https://docs.astral.sh/uv/) (`brew install uv`).
 
-- zsh-setup module to clone + symlink this on new Mac hosts (the wsx pattern)
-- capture the sniffed protocol notes in `docs/` — it's unpublished territory
+```bash
+git clone https://github.com/CaseyRo/keychron-q11 ~/dev/keychron-q11
+~/dev/keychron-q11/install.sh --backlight   # omit --backlight to skip the agent
+```
+
+Grant Hammerspoon **Accessibility** when prompted (the event tap needs
+it), then bind your keys **once** in [Keychron Launcher](https://launcher.keychron.com)
+following [docs/launcher-keymap.md](docs/launcher-keymap.md) — that file
+also explains the two macOS traps below, learned the hard way.
+
+## Two macOS traps (read before changing bindings)
+
+1. **F21–F24 do not exist on macOS.** The virtual keycode table ends at
+   F20; the OS silently drops those HID usages. Your effective bare-key
+   budget is F13–F20 — extend with modifier combos (`LCAG(KC_F18)`).
+2. **Bare F14/F15 are legacy display-brightness keys.** They never reach
+   normal hotkey APIs; this config captures them with an event tap that
+   swallows the keypress.
+
+## Tuning
+
+Everything is a constant near the top of a small file:
+
+- `hammerspoon/init.lua` — terminal apps, herdr host (or `nil`), Spotify
+  volume step
+- `backlight/keylight.py` — day hours, fallback effect
+
+## License
+
+MIT — see [LICENSE](LICENSE).
