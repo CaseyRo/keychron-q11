@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# herdr workspace navigation by number, over its socket API.
+# Runs ON cc1 (where the herdr server lives); the local Hammerspoon
+# invokes it via ssh. usage: steuerhorn-herdr focus <n> | next | prev
+# Exits non-zero when herdr is down or the target doesn't exist,
+# so the Hammerspoon caller can fall back to plain keystrokes.
+set -euo pipefail
+
+# Non-interactive ssh shells miss the mise shims on PATH.
+HERDR_BIN=${HERDR_BIN:-$(command -v herdr || echo "$HOME/.local/share/mise/installs/herdr/latest/herdr")}
+herdr() { "$HERDR_BIN" "$@"; }
+
+json=$(herdr workspace list 2>/dev/null)
+[ -n "$json" ] || exit 1
+
+id_for_number() {
+  jq -r --argjson n "$1" \
+    '.result.workspaces[] | select(.number == $n) | .workspace_id' <<<"$json"
+}
+
+case "${1:?usage: steuerhorn-herdr focus <n> | next | prev}" in
+  focus)
+    id=$(id_for_number "${2:?workspace number required}")
+    [ -n "$id" ] || exit 1
+    herdr workspace focus "$id" >/dev/null
+    ;;
+  next|prev)
+    # ponytail: wraps around; ordering is herdr's workspace number
+    target=$(jq -r --arg dir "$1" '
+      .result.workspaces | sort_by(.number) as $ws
+      | ($ws | map(.focused) | index(true)) as $i
+      | if $dir == "next" then $ws[($i + 1) % length]
+        else $ws[($i - 1 + length) % length] end
+      | .workspace_id' <<<"$json")
+    [ -n "$target" ] && [ "$target" != "null" ] || exit 1
+    herdr workspace focus "$target" >/dev/null
+    ;;
+  *)
+    echo "unknown command: $1" >&2
+    exit 2
+    ;;
+esac
