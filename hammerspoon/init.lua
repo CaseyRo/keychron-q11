@@ -101,10 +101,10 @@ end)
 -- F13-F20 are all spent, so the fn layer sends hyper-modified F18-F20.
 local HYPER = { "cmd", "alt", "ctrl" }
 hs.hotkey.bind(HYPER, "f18", function()
-  hs.spotify.setVolume(math.max(0, hs.spotify.getVolume() - 3))
+  hs.spotify.setVolume(math.max(0, hs.spotify.getVolume() + 3))
 end)
 hs.hotkey.bind(HYPER, "f19", function()
-  hs.spotify.setVolume(math.min(100, hs.spotify.getVolume() + 3))
+  hs.spotify.setVolume(math.min(100, hs.spotify.getVolume() - 3))
 end)
 hs.hotkey.bind(HYPER, "f20", function()
   hs.spotify.playpause()
