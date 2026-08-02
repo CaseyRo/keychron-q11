@@ -26,11 +26,15 @@ in `init.lua` to match.
 
 ## fn layer
 
-| Physical control  | Bind to | Meaning (host-side)  |
-| ----------------- | ------- | -------------------- |
-| Right knob ccw    | F21     | Spotify volume down  |
-| Right knob cw     | F22     | Spotify volume up    |
-| Right knob press  | F23     | Spotify play/pause   |
+**Not F21–F24** — macOS has no virtual keycodes above F20 and silently
+drops those HID usages, so bindings there never reach the host. With
+F13–F20 all spent, the fn layer reuses F18–F20 behind a hyper modifier:
+
+| Physical control  | Bind to        | Meaning (host-side)  |
+| ----------------- | -------------- | -------------------- |
+| Right knob ccw    | ⌘⌥⌃ + F18      | Spotify volume down  |
+| Right knob cw     | ⌘⌥⌃ + F19      | Spotify volume up    |
+| Right knob press  | ⌘⌥⌃ + F20      | Spotify play/pause   |
 
 Optional while the backlight automation isn't built yet: bind an RGB toggle
 somewhere reachable (e.g. fn+M1) for the manual day/night flip.

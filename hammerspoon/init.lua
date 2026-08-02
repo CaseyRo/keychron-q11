@@ -94,16 +94,19 @@ hs.hotkey.bind({}, "f20", function()
   end
 end)
 
--- Right encoder on the fn layer (F21/F22 rotate, F23 press): Spotify,
--- independent of system volume. Base layer stays plain media volume
--- (bound on the keyboard itself, never reaches us).
-hs.hotkey.bind({}, "f21", function()
+-- Right encoder on the fn layer: Spotify, independent of system volume.
+-- Base layer stays plain media volume (bound on the keyboard itself,
+-- never reaches us). macOS has NO keycodes for F21-F24 — the virtual
+-- keycode table ends at F20 and the OS drops those HID usages — and
+-- F13-F20 are all spent, so the fn layer sends hyper-modified F18-F20.
+local HYPER = { "cmd", "alt", "ctrl" }
+hs.hotkey.bind(HYPER, "f18", function()
   hs.spotify.setVolume(math.max(0, hs.spotify.getVolume() - 3))
 end)
-hs.hotkey.bind({}, "f22", function()
+hs.hotkey.bind(HYPER, "f19", function()
   hs.spotify.setVolume(math.min(100, hs.spotify.getVolume() + 3))
 end)
-hs.hotkey.bind({}, "f23", function()
+hs.hotkey.bind(HYPER, "f20", function()
   hs.spotify.playpause()
 end)
 
