@@ -110,6 +110,19 @@ hs.hotkey.bind(HYPER, "f20", function()
   hs.spotify.playpause()
 end)
 
+-- Scroll-layer fallback for the right encoder, only needed if Launcher
+-- has no mouse-wheel keycodes (KC_WH_U/KC_WH_D — prefer those: they need
+-- no host code at all). Scrolls whatever is under the pointer.
+hs.hotkey.bind(HYPER, "f14", function()
+  hs.eventtap.scrollWheel({ 0, 3 }, {}, "line") -- up
+end)
+hs.hotkey.bind(HYPER, "f15", function()
+  hs.eventtap.scrollWheel({ 0, -3 }, {}, "line") -- down
+end)
+hs.hotkey.bind(HYPER, "f16", function()
+  hs.eventtap.scrollWheel({ 0, -1000000 }, {}, "pixel") -- jump to bottom
+end)
+
 require("hs.ipc") -- enables `hs -c "hs.reload()"` for remote config reloads
 
 hs.alert.show("keychron-q11 armed")
