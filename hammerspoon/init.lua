@@ -67,12 +67,13 @@ steuerhornMTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(e
 end)
 steuerhornMTap:start() -- global on purpose: locals get GC'd and the tap dies
 
--- Left encoder rotate (F18 = ccw, F19 = cw): in the terminal cycle herdr
--- workspaces (fallback: tab cycling); elsewhere move through macOS Spaces.
+-- Left encoder rotate (F18 = ccw, F19 = cw): in the terminal walk herdr
+-- splits, falling through to workspace cycling at the edge (M-keys own
+-- direct jumps); elsewhere move through macOS Spaces.
 local function leftEncoder(dir, spaceKey, tabKey)
   return function()
     if terminalFrontmost() then
-      herdr({ dir }, function()
+      herdr({ "cycle", dir }, function()
         hs.eventtap.keyStroke({ "cmd", "shift" }, tabKey)
       end)
     else
@@ -83,9 +84,14 @@ end
 hs.hotkey.bind({}, "f18", leftEncoder("prev", "left", "["))
 hs.hotkey.bind({}, "f19", leftEncoder("next", "right", "]"))
 
--- Left encoder press (F20): Mission Control.
+-- Left encoder press (F20): zoom the focused split in the terminal,
+-- Mission Control everywhere else.
 hs.hotkey.bind({}, "f20", function()
-  hs.spaces.toggleMissionControl()
+  if terminalFrontmost() then
+    herdr({ "zoom" }, hs.spaces.toggleMissionControl)
+  else
+    hs.spaces.toggleMissionControl()
+  end
 end)
 
 -- Right encoder on the fn layer (F21/F22 rotate, F23 press): Spotify,

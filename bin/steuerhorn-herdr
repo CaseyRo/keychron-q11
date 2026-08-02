@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# herdr workspace navigation by number, over its socket API.
-# Runs ON cc1 (where the herdr server lives); the local Hammerspoon
-# invokes it via ssh. usage: steuerhorn-herdr focus <n> | next | prev
+# herdr navigation over its socket API. Runs ON cc1 (where the herdr
+# server lives); the local Hammerspoon invokes it via ssh.
+# usage: steuerhorn-herdr focus <n> | next | prev | cycle next|prev | zoom
+#   focus/next/prev  workspace by number / cycle with wraparound
+#   cycle            splits first (right→down or left→up), then workspaces
+#   zoom             toggle zoom on the focused pane
 # Exits non-zero when herdr is down or the target doesn't exist,
 # so the Hammerspoon caller can fall back to plain keystrokes.
 set -euo pipefail
@@ -34,6 +37,21 @@ case "${1:?usage: steuerhorn-herdr focus <n> | next | prev}" in
       | .workspace_id' <<<"$json")
     [ -n "$target" ] && [ "$target" != "null" ] || exit 1
     herdr workspace focus "$target" >/dev/null
+    ;;
+  cycle)
+    # ponytail: two directions per turn covers row/column layouts; no wrap
+    # within a tab — hitting the wall falls through to workspace cycling
+    dir1=right dir2=down ws=next
+    [ "${2:-next}" = prev ] && { dir1=left; dir2=up; ws=prev; }
+    for d in "$dir1" "$dir2"; do
+      changed=$(herdr pane focus --direction "$d" --current 2>/dev/null \
+        | jq -r '.result.focus.changed')
+      [ "$changed" = "true" ] && exit 0
+    done
+    exec "$0" "$ws"
+    ;;
+  zoom)
+    herdr pane zoom >/dev/null
     ;;
   *)
     echo "unknown command: $1" >&2

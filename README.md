@@ -10,11 +10,16 @@ Hammerspoon config then routes them by context:
 | Signal        | Context      | Action                                          |
 | ------------- | ------------ | ----------------------------------------------- |
 | M1–M5         | anywhere     | focus Warp + herdr workspace 1–5 (fallback: Warp tab N) |
-| left knob     | Warp         | prev/next herdr workspace                       |
+| left knob     | Warp         | walk herdr splits; at the edge, next/prev workspace |
 | left knob     | elsewhere    | macOS Spaces left/right                         |
-| left knob ⏷   | anywhere     | Mission Control                                 |
+| left knob ⏷   | Warp         | zoom the focused split                          |
+| left knob ⏷   | elsewhere    | Mission Control                                 |
 | right knob    | base layer   | system volume (bound on-keyboard, no host code) |
 | fn+right knob | anywhere     | Spotify app volume / play-pause                 |
+
+Gotcha worth knowing: bare F14/F15 are macOS's legacy display-brightness
+keys and never reach `hs.hotkey` — M2/M3 are captured by an event tap that
+swallows the keypress instead.
 
 ## Topology — two Macs
 
