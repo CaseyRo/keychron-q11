@@ -98,10 +98,10 @@ end)
 -- independent of system volume. Base layer stays plain media volume
 -- (bound on the keyboard itself, never reaches us).
 hs.hotkey.bind({}, "f21", function()
-  hs.spotify.setVolume(math.max(0, hs.spotify.getVolume() - 6))
+  hs.spotify.setVolume(math.max(0, hs.spotify.getVolume() - 3))
 end)
 hs.hotkey.bind({}, "f22", function()
-  hs.spotify.setVolume(math.min(100, hs.spotify.getVolume() + 6))
+  hs.spotify.setVolume(math.min(100, hs.spotify.getVolume() + 3))
 end)
 hs.hotkey.bind({}, "f23", function()
   hs.spotify.playpause()
