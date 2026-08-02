@@ -25,7 +25,7 @@ CH_RGB = 0x03  # rgb-matrix channel
 VAL_EFFECT = 0x02  # 0 = off
 
 DEFAULT_ON_EFFECT = 0x10  # Casey's effect as of 2026-08-02; overridden by state file
-STATE = pathlib.Path.home() / ".local/state/steuerhorn-effect"
+STATE = pathlib.Path.home() / ".local/state/keychron-q11-effect"
 
 # ponytail: fixed hours, edit here; sunrise/sunset needs a location + lib
 DAY_STARTS, DAY_ENDS = 8, 18

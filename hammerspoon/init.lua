@@ -1,10 +1,10 @@
--- steuerhorn — Q11 Ultra signal-key router. Runs on the Mac the keyboard
+-- keychron-q11 — Q11 Ultra signal-key router. Runs on the Mac the keyboard
 -- is attached to; herdr lives on cc1 and is reached over ssh.
 -- The keyboard sends dumb F13–F23 signals (bound in Keychron Launcher,
 -- see docs/launcher-keymap.md); this file decides what they mean.
 
 local REMOTE = "cc1"
-local REMOTE_HELPER = "dev/steuerhorn/bin/steuerhorn-herdr"
+local REMOTE_HELPER = "dev/keychron-q11/bin/q11-herdr"
 -- Terminals showing the cc1/herdr session, in preference order.
 local TERMINALS = { "dev.warp.Warp-Stable", "com.googlecode.iterm2" }
 
@@ -31,7 +31,7 @@ local function herdr(args, fallback)
     "-o", "BatchMode=yes",
     "-o", "ConnectTimeout=2",
     "-o", "ControlMaster=auto",
-    "-o", "ControlPath=/tmp/steuerhorn-%r@%h",
+    "-o", "ControlPath=/tmp/keychron-q11-%r@%h",
     "-o", "ControlPersist=300",
     REMOTE, REMOTE_HELPER,
   }
@@ -57,7 +57,7 @@ end
 -- macOS eats bare F14/F15 as legacy display-brightness keys before hotkey
 -- registration sees them — an event tap runs earlier and swallows them.
 local F14, F15 = 107, 113
-steuerhornMTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(e)
+q11MTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(e)
   local code = e:getKeyCode()
   if code ~= F14 and code ~= F15 then return false end
   local f = e:getFlags()
@@ -65,7 +65,7 @@ steuerhornMTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(e
   jumpWorkspace(code == F14 and 2 or 3)
   return true -- delete the event so brightness never fires
 end)
-steuerhornMTap:start() -- global on purpose: locals get GC'd and the tap dies
+q11MTap:start() -- global on purpose: locals get GC'd and the tap dies
 
 -- Left encoder rotate (F18 = ccw, F19 = cw): in the terminal walk herdr
 -- splits, falling through to workspace cycling at the edge (M-keys own
@@ -109,4 +109,4 @@ end)
 
 require("hs.ipc") -- enables `hs -c "hs.reload()"` for remote config reloads
 
-hs.alert.show("steuerhorn armed")
+hs.alert.show("keychron-q11 armed")

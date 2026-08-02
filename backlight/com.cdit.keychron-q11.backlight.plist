@@ -3,16 +3,16 @@
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.cdit.steuerhorn.backlight</string>
+  <string>com.cdit.keychron-q11.backlight</string>
   <key>ProgramArguments</key>
   <array>
     <string>/opt/homebrew/bin/uv</string>
     <string>run</string>
-    <string>/Users/caseyromkes/dev/steuerhorn/backlight/keylight.py</string>
+    <string>/Users/caseyromkes/dev/keychron-q11/backlight/keylight.py</string>
     <string>auto</string>
   </array>
   <key>StandardErrorPath</key>
-  <string>/tmp/steuerhorn-backlight.log</string>
+  <string>/tmp/keychron-q11-backlight.log</string>
   <!-- auto = pick on/off from the hour, so a run at any trigger self-corrects -->
   <key>StartCalendarInterval</key>
   <array>

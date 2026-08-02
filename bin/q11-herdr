@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # herdr navigation over its socket API. Runs ON cc1 (where the herdr
 # server lives); the local Hammerspoon invokes it via ssh.
-# usage: steuerhorn-herdr focus <n> | next | prev | cycle next|prev | zoom
+# usage: q11-herdr focus <n> | next | prev | cycle next|prev | zoom
 #   focus/next/prev  workspace by number / cycle with wraparound
 #   cycle            splits first (right→down or left→up), then workspaces
 #   zoom             toggle zoom on the focused pane
@@ -21,7 +21,7 @@ id_for_number() {
     '.result.workspaces[] | select(.number == $n) | .workspace_id' <<<"$json"
 }
 
-case "${1:?usage: steuerhorn-herdr focus <n> | next | prev}" in
+case "${1:?usage: q11-herdr focus <n> | next | prev}" in
   focus)
     id=$(id_for_number "${2:?workspace number required}")
     [ -n "$id" ] || exit 1

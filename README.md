@@ -1,7 +1,8 @@
-# steuerhorn
+# keychron-q11
 
-*The pilot's yoke for the desk cockpit — host-side brains for the Keychron
-Q11 Ultra 8K (split, M1–M5 macro column, two knobs).*
+*Host-side daemon & routing for the Keychron Q11 Ultra 8K (split, M1–M5
+macro column, two knobs): workspace keys, context-aware encoders, and
+scheduled backlight.*
 
 The keyboard is configured **once** in [Keychron Launcher](https://launcher.keychron.com)
 to send dumb signal keys (F13–F23, see `docs/launcher-keymap.md`). A single
@@ -25,7 +26,7 @@ swallows the keypress instead.
 
 The keyboard (and Spotify, and the Launcher/WebHID session) is attached to
 the **local Mac**; the herdr server runs on **cc1**. Hammerspoon therefore
-runs locally and reaches herdr via `ssh cc1 dev/steuerhorn/bin/steuerhorn-herdr`
+runs locally and reaches herdr via `ssh cc1 dev/keychron-q11/bin/q11-herdr`
 (multiplexed with ControlPersist, so encoder detents don't pay a handshake).
 No fake keystrokes into the terminal — real socket API on cc1.
 
@@ -37,27 +38,30 @@ Q11 Ultra ──USB/2.4G──▶ local Mac: Hammerspoon router ──ssh──�
 ## Install (on the local Mac, not cc1)
 
 ```bash
-git clone <this repo> ~/dev/steuerhorn && ~/dev/steuerhorn/install.sh
+git clone <this repo> ~/dev/keychron-q11 && ~/dev/keychron-q11/install.sh
 ```
 
 Then do the one-time Launcher keymap (`docs/launcher-keymap.md`).
 Requires non-interactive `ssh cc1` (BatchMode) to work — 1Password agent
 prompts will make the workspace keys fall back to Cmd+N until unlocked.
 
-## Backlight day/night (`backlight/`) — in progress
+## Backlight day/night (`backlight/`) — working
 
-The Ultra series runs Keychron's ZMK fork with a **proprietary HID protocol**
-(no VIA/QMK raw HID — none of the QMK-era tooling applies, and no host-control
-prior art exists as of 2026-08). Plan:
+Despite running ZMK, the Ultra series speaks the **VIA v3 custom-values
+protocol** on HID usage page `0xFF60` — reverse-engineered 2026-08-02 with
+`backlight/sniff-helper.js`, documented in `docs/protocol.md` (no published
+prior art existed). `keylight.py` (uv script, hidapi) sets the RGB-matrix
+effect: `0` = off; "on" restores the last-seen effect from
+`~/.local/state/keychron-q11-effect`.
 
-1. Open Launcher with DevTools, paste `backlight/sniff-helper.js`, toggle the
-   backlight in the UI, and copy the logged report bytes.
-2. Fill `PID` and `REPORTS` in `backlight/keylight.py`.
-3. `cp backlight/com.cdit.steuerhorn.backlight.plist ~/Library/LaunchAgents/`
-   and `launchctl load` it — backlight off 08:00, on 18:00, self-correcting
-   on boot/wake via `auto`.
+Deployed as launchd agent `com.cdit.keychron-q11.backlight`: off 08:00,
+on 18:00, `auto` self-corrects on boot/wake. Manual override any time:
 
-Until then: manual RGB-toggle key bound on the keyboard.
+```bash
+uv run backlight/keylight.py on|off|status
+```
+
+Gotcha: an open Launcher tab shares the HID interface and races read-backs.
 
 ## Later, when it has proven itself
 

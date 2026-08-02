@@ -1,10 +1,10 @@
-// steuerhorn backlight sniffer — paste into the DevTools console on
+// keychron-q11 backlight sniffer — paste into the DevTools console on
 // https://launcher.keychron.com BEFORE connecting the keyboard, then use
 // the Launcher UI to toggle/adjust the backlight. Every HID report the
 // page sends/receives is logged as hex. Copy the OUT lines that correspond
 // to your backlight actions into keylight.py.
 (() => {
-  const log = (window.__steuerhornLog = window.__steuerhornLog || []);
+  const log = (window.__q11Log = window.__q11Log || []);
   const hex = (d) => {
     const u8 = d instanceof DataView
       ? new Uint8Array(d.buffer, d.byteOffset, d.byteLength)
@@ -13,9 +13,9 @@
   };
   const note = (line) => {
     log.push(`${Date.now() % 100000} ${line}`);
-    console.log(`[steuerhorn] ${line}`);
+    console.log(`[keychron-q11] ${line}`);
   };
-  window.__steuerhornMark = (label) => note(`===== ${label} =====`);
+  window.__q11Mark = (label) => note(`===== ${label} =====`);
 
   for (const fn of ["sendReport", "sendFeatureReport", "receiveFeatureReport"]) {
     const orig = HIDDevice.prototype[fn];
@@ -33,5 +33,5 @@
     }),
   );
 
-  console.log("[steuerhorn] armed. Mark actions with __steuerhornMark('backlight off'), then toggle in the UI. When done: copy(__steuerhornLog.join('\\n'))");
+  console.log("[keychron-q11] armed. Mark actions with __q11Mark('backlight off'), then toggle in the UI. When done: copy(__q11Log.join('\\n'))");
 })();
