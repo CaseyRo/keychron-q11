@@ -43,14 +43,29 @@ end
 
 -- M1–M5 (F13–F17): the flight-deck selector. From anywhere, focus the
 -- terminal and jump to herdr workspace N; herdr down → terminal tab N.
-for i = 1, 5 do
-  hs.hotkey.bind({}, "f" .. (12 + i), function()
-    focusTerminal()
-    herdr({ "focus", tostring(i) }, function()
-      hs.eventtap.keyStroke({ "cmd" }, tostring(i))
-    end)
+local function jumpWorkspace(n)
+  focusTerminal()
+  herdr({ "focus", tostring(n) }, function()
+    hs.eventtap.keyStroke({ "cmd" }, tostring(n))
   end)
 end
+
+for key, ws in pairs({ f13 = 1, f16 = 4, f17 = 5 }) do
+  hs.hotkey.bind({}, key, function() jumpWorkspace(ws) end)
+end
+
+-- macOS eats bare F14/F15 as legacy display-brightness keys before hotkey
+-- registration sees them — an event tap runs earlier and swallows them.
+local F14, F15 = 107, 113
+steuerhornMTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(e)
+  local code = e:getKeyCode()
+  if code ~= F14 and code ~= F15 then return false end
+  local f = e:getFlags()
+  if f.cmd or f.alt or f.ctrl or f.shift then return false end
+  jumpWorkspace(code == F14 and 2 or 3)
+  return true -- delete the event so brightness never fires
+end)
+steuerhornMTap:start() -- global on purpose: locals get GC'd and the tap dies
 
 -- Left encoder rotate (F18 = ccw, F19 = cw): in the terminal cycle herdr
 -- workspaces (fallback: tab cycling); elsewhere move through macOS Spaces.
@@ -85,5 +100,7 @@ end)
 hs.hotkey.bind({}, "f23", function()
   hs.spotify.playpause()
 end)
+
+require("hs.ipc") -- enables `hs -c "hs.reload()"` for remote config reloads
 
 hs.alert.show("steuerhorn armed")
