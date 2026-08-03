@@ -71,7 +71,14 @@ q11MTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(e)
   if code ~= F14 and code ~= F15 then return false end
   local f = e:getFlags()
   if f.cmd or f.alt or f.ctrl or f.shift then return false end
-  jumpWorkspace(code == F14 and 2 or 3)
+  -- Defer the work off the tap callback. focusTerminal() goes through the
+  -- window server, which takes seconds when the Mac is loaded (SkyLight
+  -- saturated, swapping). macOS blocks the ENTIRE input stream until a keyDown
+  -- tap returns, so doing that inline stalls every keystroke system-wide — not
+  -- just this one. doAfter(0) runs it on the next runloop pass instead, so a
+  -- slow jump stays a slow jump rather than freezing typing.
+  local ws = code == F14 and 2 or 3
+  hs.timer.doAfter(0, function() jumpWorkspace(ws) end)
   return true -- delete the event so brightness never fires
 end)
 q11MTap:start() -- global on purpose: locals get GC'd and the tap dies
@@ -136,6 +143,27 @@ end)
 -- inert until Hammerspoon is restarted by hand — which reads as "the router
 -- died". Replaces the old hs.ipc line: `hs -c` needs hs.ipc.cliInstall(),
 -- which was never run, so remote reload never actually worked.
-hs.pathwatcher.new(hs.configdir, hs.reload):start()
+--
+-- Filter to .lua: hs.configdir is usually a symlink into this git worktree, so
+-- an unfiltered watcher reloads on .DS_Store, editor swap files, Spoons/ and
+-- every git index write — and each reload rebuilds the eventtap below.
+local function reloadOnLuaChange(paths)
+  for _, p in ipairs(paths) do
+    if p:sub(-4) == ".lua" then
+      hs.reload()
+      return
+    end
+  end
+end
+-- global on purpose, same reason as q11MTap: a local watcher gets GC'd and
+-- auto-reload silently stops working.
+q11Watcher = hs.pathwatcher.new(hs.configdir, reloadOnLuaChange):start()
+
+-- Reload rebinds q11MTap but does NOT stop the tap the old config started, and
+-- a started tap stays live until it happens to be collected. Two live taps both
+-- swallow the same F14/F15 press, so one keypress fires jumpWorkspace twice.
+function hs.shutdownCallback()
+  if q11MTap then q11MTap:stop() end
+end
 
 hs.alert.show("keychron-q11 armed")
