@@ -132,6 +132,10 @@ hs.hotkey.bind(HYPER, "f16", function()
   hs.eventtap.scrollWheel({ 0, -1000000 }, {}, "pixel") -- jump to bottom
 end)
 
-require("hs.ipc") -- enables `hs -c "hs.reload()"` for remote config reloads
+-- Reload on config change. Without this a `git pull` on the router host is
+-- inert until Hammerspoon is restarted by hand — which reads as "the router
+-- died". Replaces the old hs.ipc line: `hs -c` needs hs.ipc.cliInstall(),
+-- which was never run, so remote reload never actually worked.
+hs.pathwatcher.new(hs.configdir, hs.reload):start()
 
 hs.alert.show("keychron-q11 armed")
