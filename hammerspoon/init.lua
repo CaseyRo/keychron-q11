@@ -2,6 +2,11 @@
 -- is attached to. The keyboard sends dumb F13–F20 signals (bound in
 -- Keychron Launcher, see docs/launcher-keymap.md); this file decides what
 -- they mean.
+--
+-- The macOS traps this works around, and the measurements behind the ssh
+-- settings, are in README.md → Three macOS traps / Troubleshooting.
+
+require("hs.ipc") -- `hs -c "..."` introspection; first, so a later throw is diagnosable
 
 -- ── config ──────────────────────────────────────────────────────────────
 -- Optional: an ssh host running herdr (terminal workspace manager) for
@@ -11,6 +16,9 @@ local REMOTE = "cc1"
 local REMOTE_HELPER = "dev/keychron-q11/bin/q11-herdr"
 -- Terminals to treat as "the cockpit", in preference order.
 local TERMINALS = { "dev.warp.Warp-Stable", "com.googlecode.iterm2" }
+-- Ceiling on one herdr call, seconds. Past this, fall back to the local
+-- keystroke rather than let presses queue behind a dead ssh.
+local HERDR_TIMEOUT = 3
 -- ────────────────────────────────────────────────────────────────────────
 
 local function terminalFrontmost()
@@ -28,26 +36,39 @@ local function focusTerminal()
   hs.application.launchOrFocusByBundleID(TERMINALS[1])
 end
 
+-- One multiplexed connection carries every press: ~85ms warm vs ~2.6s cold.
+-- %n not %h (Tailscale re-addresses and orphans the master); ControlPersist=yes
+-- not a finite value (idle expiry put the cold path back on the next keypress);
+-- ServerAlive* because ConnectTimeout bounds only the TCP connect.
+local SSH_OPTS = {
+  "-o", "BatchMode=yes",
+  "-o", "ConnectTimeout=2",
+  "-o", "ControlMaster=auto",
+  "-o", "ControlPath=/tmp/keychron-q11-%r@%n",
+  "-o", "ControlPersist=yes",
+  "-o", "ServerAliveInterval=2",
+  "-o", "ServerAliveCountMax=2",
+}
+
 -- Run the herdr helper on cc1; on failure fall back to a plain keystroke.
--- ControlPersist keeps one multiplexed connection warm so encoder detents
--- cost ~tens of ms, not a full ssh handshake each.
 local function herdr(args, fallback)
   if not REMOTE then
     if fallback then fallback() end
     return
   end
-  local sshArgs = {
-    "-o", "BatchMode=yes",
-    "-o", "ConnectTimeout=2",
-    "-o", "ControlMaster=auto",
-    "-o", "ControlPath=/tmp/keychron-q11-%r@%h",
-    "-o", "ControlPersist=300",
-    REMOTE, REMOTE_HELPER,
-  }
-  for _, a in ipairs(args) do table.insert(sshArgs, a) end
-  hs.task.new("/usr/bin/ssh", function(exitCode)
+  local sshArgs = table.move(SSH_OPTS, 1, #SSH_OPTS, 1, { })
+  sshArgs[#sshArgs + 1] = REMOTE
+  sshArgs[#sshArgs + 1] = REMOTE_HELPER
+  for _, a in ipairs(args) do sshArgs[#sshArgs + 1] = a end
+  local task = hs.task.new("/usr/bin/ssh", function(exitCode)
     if exitCode ~= 0 and fallback then fallback() end
-  end, sshArgs):start()
+  end, sshArgs)
+  task:start()
+  -- terminate() SIGTERMs, so the callback above fires with exitCode 15 and runs
+  -- the fallback itself — no second path needed here.
+  hs.timer.doAfter(HERDR_TIMEOUT, function()
+    if task:isRunning() then task:terminate() end
+  end)
 end
 
 -- M1–M5 (F13–F17): the flight-deck selector. From anywhere, focus the
@@ -71,12 +92,9 @@ q11MTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(e)
   if code ~= F14 and code ~= F15 then return false end
   local f = e:getFlags()
   if f.cmd or f.alt or f.ctrl or f.shift then return false end
-  -- Defer the work off the tap callback. focusTerminal() goes through the
-  -- window server, which takes seconds when the Mac is loaded (SkyLight
-  -- saturated, swapping). macOS blocks the ENTIRE input stream until a keyDown
-  -- tap returns, so doing that inline stalls every keystroke system-wide — not
-  -- just this one. doAfter(0) runs it on the next runloop pass instead, so a
-  -- slow jump stays a slow jump rather than freezing typing.
+  -- macOS blocks the ENTIRE input stream until a keyDown tap returns, and
+  -- focusTerminal() can take seconds on a loaded Mac. doAfter(0) moves it to the
+  -- next runloop pass so a slow jump never freezes typing system-wide.
   local ws = code == F14 and 2 or 3
   hs.timer.doAfter(0, function() jumpWorkspace(ws) end)
   return true -- delete the event so brightness never fires
@@ -111,10 +129,9 @@ hs.hotkey.bind({}, "f20", function()
 end)
 
 -- Right encoder on the fn layer: Spotify, independent of system volume.
--- Base layer stays plain media volume (bound on the keyboard itself,
--- never reaches us). macOS has NO keycodes for F21-F24 — the virtual
--- keycode table ends at F20 and the OS drops those HID usages — and
--- F13-F20 are all spent, so the fn layer sends hyper-modified F18-F20.
+-- Base layer stays plain media volume (bound on the keyboard itself, never
+-- reaches us). F21-F24 don't exist on macOS and F13-F20 are spent, so the fn
+-- layer sends hyper-modified F18-F20.
 local HYPER = { "cmd", "alt", "ctrl" }
 hs.hotkey.bind(HYPER, "f18", function()
   hs.spotify.setVolume(math.min(100, hs.spotify.getVolume() + 3))
@@ -126,44 +143,35 @@ hs.hotkey.bind(HYPER, "f20", function()
   hs.spotify.playpause()
 end)
 
--- Scroll-layer fallback for the right encoder, only needed if Launcher
--- has no mouse-wheel keycodes (KC_WH_U/KC_WH_D — prefer those: they need
--- no host code at all). Scrolls whatever is under the pointer.
-hs.hotkey.bind(HYPER, "f14", function()
-  hs.eventtap.scrollWheel({ 0, 3 }, {}, "line") -- up
-end)
-hs.hotkey.bind(HYPER, "f15", function()
-  hs.eventtap.scrollWheel({ 0, -3 }, {}, "line") -- down
-end)
+-- Scroll up/down are pure keyboard (KC_WH_U/KC_WH_D). Jump-to-bottom has no
+-- wheel keycode, so it stays here.
 hs.hotkey.bind(HYPER, "f16", function()
-  hs.eventtap.scrollWheel({ 0, -1000000 }, {}, "pixel") -- jump to bottom
+  hs.eventtap.scrollWheel({ 0, -1000000 }, {}, "pixel")
 end)
 
--- Reload on config change. Without this a `git pull` on the router host is
--- inert until Hammerspoon is restarted by hand — which reads as "the router
--- died". Replaces the old hs.ipc line: `hs -c` needs hs.ipc.cliInstall(),
--- which was never run, so remote reload never actually worked.
---
--- Filter to .lua: hs.configdir is usually a symlink into this git worktree, so
--- an unfiltered watcher reloads on .DS_Store, editor swap files, Spoons/ and
--- every git index write — and each reload rebuilds the eventtap below.
-local function reloadOnLuaChange(paths)
+-- Reload on config change, so a git pull isn't inert until Hammerspoon is
+-- restarted by hand. Filtered to .lua: hs.configdir is a symlink into this
+-- worktree, so an unfiltered watcher fires on .DS_Store and every git index
+-- write, and each reload rebuilds the tap.
+q11Watcher = hs.pathwatcher.new(hs.configdir, function(paths)
   for _, p in ipairs(paths) do
-    if p:sub(-4) == ".lua" then
-      hs.reload()
-      return
-    end
+    if p:sub(-4) == ".lua" then return hs.reload() end
   end
-end
--- global on purpose, same reason as q11MTap: a local watcher gets GC'd and
--- auto-reload silently stops working.
-q11Watcher = hs.pathwatcher.new(hs.configdir, reloadOnLuaChange):start()
+end):start()
 
--- Reload rebinds q11MTap but does NOT stop the tap the old config started, and
--- a started tap stays live until it happens to be collected. Two live taps both
--- swallow the same F14/F15 press, so one keypress fires jumpWorkspace twice.
+-- Taps and FSEvents streams are OS resources GC won't promptly release, and a
+-- reload builds new ones without stopping the old — two live taps swallow the
+-- same press twice.
 function hs.shutdownCallback()
   if q11MTap then q11MTap:stop() end
+  if q11Watcher then q11Watcher:stop() end
+  if q11Health then q11Health:stop() end
 end
+
+-- macOS silently disables event taps and isEnabled() keeps reporting true, so a
+-- watchdog that checks it never fires. Re-arm unconditionally; costs microseconds.
+q11Health = hs.timer.doEvery(30, function()
+  if q11MTap then q11MTap:stop():start() end
+end)
 
 hs.alert.show("keychron-q11 armed")

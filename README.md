@@ -2,14 +2,19 @@
 
 **Host-side control for the Keychron Q11 Ultra 8K on macOS** — turn the
 split keyboard's macro column and two knobs into workspace keys,
-context-aware encoders, and a backlight that follows the clock. Includes
+context-aware encoders, and a backlight that follows the house. Includes
 the first published host-control protocol for Keychron's ZMK-based Ultra
 series ([docs/protocol.md](docs/protocol.md)).
 
 ```
-Q11 Ultra ──USB/2.4G──▶ Hammerspoon router ──▶ terminal / Spaces / Spotify
+Q11 Ultra ──USB/2.4G──▶ Hammerspoon router ─┬─▶ Spaces / Spotify / scroll   local
+                                            └─▶ ssh ─▶ herdr host    terminal only
                         keylight.py (launchd) ──▶ backlight follows HA house mode
 ```
+
+That split is the first thing to check when something feels broken: only
+the terminal path leaves the machine, so if the encoder works everywhere
+*except* in the terminal, suspect ssh rather than the keyboard.
 
 ## What you get
 
@@ -82,9 +87,9 @@ git clone https://github.com/CaseyRo/keychron-q11 ~/dev/keychron-q11
 Grant Hammerspoon **Accessibility** when prompted (the event tap needs
 it), then bind your keys **once** in [Keychron Launcher](https://launcher.keychron.com)
 following [docs/launcher-keymap.md](docs/launcher-keymap.md) — that file
-also explains the two macOS traps below, learned the hard way.
+also explains the macOS traps below, learned the hard way.
 
-## Two macOS traps (read before changing bindings)
+## Three macOS traps (read before changing bindings)
 
 1. **F21–F24 do not exist on macOS.** The virtual keycode table ends at
    F20; the OS silently drops those HID usages. Your effective bare-key
@@ -92,13 +97,71 @@ also explains the two macOS traps below, learned the hard way.
 2. **Bare F14/F15 are legacy display-brightness keys.** They never reach
    normal hotkey APIs; this config captures them with an event tap that
    swallows the keypress.
+3. **macOS disables event taps behind your back, and
+   `hs.eventtap:isEnabled()` will not tell you.** That method reports
+   Hammerspoon's own flag, not whether the OS still routes events to the
+   tap. After a display sleep/wake or under load the tap goes dead while
+   every diagnostic still looks healthy — enabled `true`, Accessibility
+   granted, all hotkeys bound — and M2/M3 quietly revert to adjusting
+   brightness. A watchdog that *checks* `isEnabled()` therefore never
+   fires; `healthTick` re-arms unconditionally every 30s instead.
+
+## Troubleshooting
+
+**M2/M3 changed the screen brightness instead of switching workspace.**
+Trap 3. It self-heals within 30s. To confirm rather than wait:
+`hs -c 'q11MTap:stop():start()'`. Note that the encoder still working
+does *not* mean the tap is fine — encoders go through `hs.hotkey.bind`,
+a different mechanism, so "encoder fine, M-keys dead" points straight at
+the tap.
+
+**Keys respond slowly, or seem to do nothing, only inside the terminal.**
+Every M-key and left-encoder action in a terminal goes over ssh to the
+herdr host; everything else is local. So terminal-only slowness means the
+ssh path, not the keyboard. Measured on a Tailscale link:
+
+| path | cost |
+| --- | --- |
+| through a live ControlMaster | ~85ms |
+| re-establishing the master | ~2.6s |
+| remote host had slept | ~8.5s, presses stacking up |
+
+Only the first is usable, so **keeping the master alive is the feature,
+not an optimisation.** Check it at the moment of failure — a warm test
+always passes and hides the bug:
+
+```bash
+ssh -O check -o "ControlPath=/tmp/keychron-q11-%r@%n" <host>
+```
+
+Three settings make that hold, all in `SSH_OPTS`: `ControlPersist=yes`
+(a finite value lapses during any normal pause, and the next press pays a
+cold handshake), `ControlPath=…%n` (`%n` is the name as typed — `%h` is
+the *resolved* address, which Tailscale changes on a direct↔DERP switch,
+silently orphaning the master), and `ServerAliveInterval`/`CountMax`
+(`ConnectTimeout` bounds only the TCP connect, so a reachable-but-slow
+host hangs straight past it).
+
+**Nothing responds and you want to know why.** The config opens an
+`hs.ipc` port, so you can interrogate the live router:
+
+```bash
+hs -c 'return q11MTap:isEnabled()'      # lies — see trap 3
+hs -c 'return #hs.hotkey.getHotkeys()'  # expect 12
+hs -c 'return hs.accessibilityState()'
+```
+
+⚠️ That port accepts Lua from any local process. Fine on a personal
+machine; drop the `require("hs.ipc")` line if that isn't your threat
+model.
 
 ## Tuning
 
 Everything is a constant near the top of a small file:
 
 - `hammerspoon/init.lua` — terminal apps, herdr host (or `nil`), Spotify
-  volume step
+  volume step, `HERDR_TIMEOUT` (ceiling on one remote call before it
+  falls back to a local keystroke)
 - `backlight/keylight.py` — which house modes go dark, clock fallback hours,
   fallback effect
 

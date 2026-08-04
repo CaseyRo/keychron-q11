@@ -20,6 +20,10 @@ they mean per context.
   and swallows the keypress — but any *other* tool binding them plainly
   will lose to the brightness handler.
 
+  If M2/M3 ever start adjusting brightness again, the binding is fine —
+  macOS disabled the tap underneath Hammerspoon. See trap 3 and
+  Troubleshooting in the [README](../README.md); it self-heals within 30s.
+
 ## Base layer
 
 | Physical control | Keycode  | Meaning (host-side)                                |
@@ -38,14 +42,18 @@ they mean per context.
 
 ## Scroll layer (e.g. your fn layer) — right knob
 
-Prefer the mouse-wheel keycodes if your Launcher offers them (no host
-code involved, scrolls anything under the pointer):
+| Physical control | Keycode          | Meaning                         |
+| ---------------- | ---------------- | ------------------------------- |
+| Right knob ccw   | `KC_WH_U`        | scroll up under the pointer     |
+| Right knob cw    | `KC_WH_D`        | scroll down under the pointer   |
+| Right knob press | `LCAG(KC_F16)`   | jump to bottom (host-side)      |
 
-| Physical control | Preferred    | Fallback (host-side)              |
-| ---------------- | ------------ | --------------------------------- |
-| Right knob ccw   | `KC_WH_U`    | `LCAG(KC_F14)`                    |
-| Right knob cw    | `KC_WH_D`    | `LCAG(KC_F15)`                    |
-| Right knob press | —            | `LCAG(KC_F16)` = jump to bottom   |
+Scrolling is **pure keyboard** — `KC_WH_U`/`KC_WH_D` need no host code at
+all, so they keep working even if Hammerspoon is down. Host-side
+`LCAG(KC_F14)`/`LCAG(KC_F15)` wheel emulation used to exist as a fallback
+for Launchers without wheel keycodes; it was removed as dead weight. If
+yours can't emit them, bind the F-keys and restore those two hotkeys from
+git history. Jump-to-bottom has no wheel keycode, so it stays host-side.
 
 ## Spotify layer — right knob
 
