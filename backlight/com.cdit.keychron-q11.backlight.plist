@@ -14,12 +14,12 @@
   </array>
   <key>StandardErrorPath</key>
   <string>/tmp/keychron-q11-backlight.log</string>
-  <!-- auto = pick on/off from the hour, so a run at any trigger self-corrects -->
-  <key>StartCalendarInterval</key>
-  <array>
-    <dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>
-    <dict><key>Hour</key><integer>18</integer><key>Minute</key><integer>0</integer></dict>
-  </array>
+  <!-- Poll, don't schedule. Two calendar points left the keyboard wrong for
+       hours whenever it came back on mid-window (reconnect, re-pair, Launcher),
+       and house mode flips at times a fixed schedule can't know. `auto` is a
+       no-op when the effect already matches, so this is cheap. -->
+  <key>StartInterval</key>
+  <integer>600</integer>
   <key>RunAtLoad</key>
   <true/>
 </dict>

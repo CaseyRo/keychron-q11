@@ -8,12 +8,20 @@ Speaks the VIA v3 custom-values protocol that Keychron's ZMK fork exposes
 on the vendor HID collection (usage page 0xFF60) — captured 2026-08-02 from
 launcher.keychron.com, documented in docs/protocol.md.
 
-usage: uv run keylight.py on|off|auto|status
+`auto` asks Home Assistant for the current house mode and falls back to the
+clock when HA is unconfigured or unreachable. The launchd agent runs `auto`
+on a poll, so the keyboard is re-corrected after a reconnect or re-pair
+rather than drifting until the next scheduled flip.
+
+usage: uv run keylight.py on|off|auto|status|selftest
 """
 
 import datetime
+import json
 import pathlib
+import subprocess
 import sys
+import urllib.request
 
 import hid
 
@@ -27,8 +35,77 @@ VAL_EFFECT = 0x02  # 0 = off
 DEFAULT_ON_EFFECT = 0x10  # fallback when no state file exists yet
 STATE = pathlib.Path.home() / ".local/state/keychron-q11-effect"
 
-# ponytail: fixed hours, edit here; sunrise/sunset needs a location + lib
+# Home Assistant house mode drives `auto`. HA_URL lives in the conf file;
+# the token lives in the login keychain (`security add-generic-password
+# -s keychron-q11-ha -a "$USER" -w "$TOKEN"`) so no secret sits in a dotfile.
+# No HA? Leave the conf file out and the clock below takes over.
+CONF = pathlib.Path.home() / ".config/keychron-q11.env"
+HA_ENTITY = "input_select.house_mode"
+HA_KEYCHAIN_SERVICE = "keychron-q11-ha"
+# House modes bright enough (or empty enough) to not want a lit keyboard.
+# Everything else — morning, evening, night, guest, custom — lights up.
+MODES_DARK_OFF = {"day", "away"}
+
+# Fallback only, used when HA can't be reached.
 DAY_STARTS, DAY_ENDS = 8, 18
+
+
+def ha_url() -> str | None:
+    try:
+        for line in CONF.read_text().splitlines():
+            key, _, value = line.partition("=")
+            if key.strip() == "HA_URL":
+                return value.strip().strip("\"'").rstrip("/") or None
+    except FileNotFoundError:
+        pass
+    return None
+
+
+def ha_token() -> str | None:
+    out = subprocess.run(
+        ["security", "find-generic-password", "-s", HA_KEYCHAIN_SERVICE, "-w"],
+        capture_output=True, text=True,
+    )
+    return out.stdout.strip() or None
+
+
+def house_mode() -> str | None:
+    """Current HA house mode, or None if unconfigured/unreachable."""
+    url, token = ha_url(), ha_token()
+    if not (url and token):
+        return None
+    req = urllib.request.Request(
+        f"{url}/api/states/{HA_ENTITY}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            return json.load(resp)["state"]
+    except Exception as exc:
+        # Laptop off the tailnet, HA rebooting, token rotated — any of these
+        # must degrade to the clock, never take the backlight down with them.
+        print(f"house mode unavailable ({exc}); using clock", file=sys.stderr)
+        return None
+
+
+def auto_action(mode: str | None, hour: int) -> str:
+    if mode is not None:
+        return "off" if mode in MODES_DARK_OFF else "on"
+    return "off" if DAY_STARTS <= hour < DAY_ENDS else "on"
+
+
+def selftest() -> None:
+    assert auto_action("day", 3) == "off"  # HA wins over the clock
+    assert auto_action("away", 22) == "off"
+    assert auto_action("night", 12) == "on"
+    assert auto_action("evening", 12) == "on"
+    assert auto_action("morning", 12) == "on"
+    assert auto_action("guest", 12) == "on"  # unknown-ish modes light up
+    assert auto_action(None, 8) == "off"  # clock fallback, boundaries
+    assert auto_action(None, 17) == "off"
+    assert auto_action(None, 18) == "on"
+    assert auto_action(None, 7) == "on"
+    print("selftest ok")
 
 
 def open_device() -> "hid.device":
@@ -67,8 +144,12 @@ def set_effect(dev, effect: int) -> None:
 
 def main() -> None:
     action = sys.argv[1] if len(sys.argv) > 1 else "auto"
+    if action == "selftest":
+        return selftest()
     if action == "auto":
-        action = "off" if DAY_STARTS <= datetime.datetime.now().hour < DAY_ENDS else "on"
+        mode = house_mode()
+        action = auto_action(mode, datetime.datetime.now().hour)
+        print(f"auto: house mode {mode or '(clock)'} -> {action}")
 
     dev = open_device()
     try:
@@ -88,6 +169,11 @@ def main() -> None:
                 target = DEFAULT_ON_EFFECT
         else:
             sys.exit(__doc__)
+        if current == target:
+            # Polling every few minutes, and set_effect writes the keyboard's
+            # flash — don't burn a write cycle re-asserting what's already set.
+            print(f"backlight {action}: already effect {target}")
+            return
         set_effect(dev, target)
         readback = get_effect(dev)
         print(f"backlight {action}: effect {current} -> {readback}")

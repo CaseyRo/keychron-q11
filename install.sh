@@ -27,7 +27,8 @@ if [ "${1:-}" = "--backlight" ]; then
     "backlight/$label.plist" > "$plist"
   launchctl bootout "gui/$(id -u)/$label" 2>/dev/null || true
   launchctl bootstrap "gui/$(id -u)" "$plist"
-  echo "✓ backlight agent loaded (off 08:00 / on 18:00 — hours live in backlight/keylight.py)"
+  echo "✓ backlight agent loaded (polls every 10 min; follows Home Assistant"
+  echo "  house mode if configured, else the clock — see backlight/keylight.py)"
 fi
 
 open -a Hammerspoon

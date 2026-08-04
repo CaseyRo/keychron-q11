@@ -8,7 +8,7 @@ series ([docs/protocol.md](docs/protocol.md)).
 
 ```
 Q11 Ultra ──USB/2.4G──▶ Hammerspoon router ──▶ terminal / Spaces / Spotify
-                        keylight.py (launchd) ──▶ backlight off by day, on by night
+                        keylight.py (launchd) ──▶ backlight follows HA house mode
 ```
 
 ## What you get
@@ -22,7 +22,7 @@ Q11 Ultra ──USB/2.4G──▶ Hammerspoon router ──▶ terminal / Spaces
 | right knob (base) | anywhere | ↑ / ↓ / Enter — drive TUI menus (Claude Code, fzf, …) |
 | right knob (scroll layer) | anywhere | scroll under pointer; press = jump to bottom |
 | right knob (Spotify layer) | anywhere | Spotify app volume / play-pause — independent of system volume |
-| backlight | 08:00–18:00 | off during the day, restored at night (launchd) |
+| backlight | house mode `day`/`away` | off; restored on every other mode (launchd, 10 min poll) |
 
 Workspace navigation speaks to **herdr** (a terminal workspace manager)
 over its socket API — optionally on a remote host via multiplexed ssh.
@@ -41,12 +41,33 @@ Full notes, captured with a 30-line DevTools monkey-patch:
 [docs/protocol.md](docs/protocol.md) · capture tool:
 [backlight/sniff-helper.js](backlight/sniff-helper.js)
 
-`backlight/keylight.py` uses it for scheduled day/night backlight — it
+`backlight/keylight.py` uses it for the day/night backlight — it
 remembers your current effect before switching off and restores it after:
 
 ```bash
-uv run backlight/keylight.py on|off|status
+uv run backlight/keylight.py on|off|auto|status|selftest
 ```
+
+The agent runs `auto` on a 10-minute poll rather than at two fixed times,
+because a keyboard that reconnects or re-pairs mid-window comes back with
+its own saved effect — a schedule leaves that wrong until the next flip.
+`auto` is a no-op when the effect already matches, so polling costs nothing
+and never re-writes the keyboard's flash.
+
+### Home Assistant house mode (optional)
+
+`auto` prefers an HA `input_select.house_mode` over the clock: modes `day`
+and `away` go dark, every other mode (`morning`, `evening`, `night`,
+`guest`, `custom`) lights up. Point it at your instance and stash a
+long-lived token in the login keychain:
+
+```bash
+mkdir -p ~/.config && echo 'HA_URL=http://homeassistant.local:8123' > ~/.config/keychron-q11.env
+security add-generic-password -s keychron-q11-ha -a "$USER" -w   # prompts, no shell history
+```
+
+No conf file or no token → it silently falls back to the `DAY_STARTS`/
+`DAY_ENDS` clock, same as before. Same for HA being down or off-network.
 
 ## Install
 
@@ -78,7 +99,8 @@ Everything is a constant near the top of a small file:
 
 - `hammerspoon/init.lua` — terminal apps, herdr host (or `nil`), Spotify
   volume step
-- `backlight/keylight.py` — day hours, fallback effect
+- `backlight/keylight.py` — which house modes go dark, clock fallback hours,
+  fallback effect
 
 ## License
 
