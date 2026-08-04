@@ -12,6 +12,11 @@
     <string>__REPO__/backlight/keylight.py</string>
     <string>auto</string>
   </array>
+  <!-- stdout too: the "house mode X -> on/off" line is the only way to tell
+       whether HA or the clock fallback decided, and the keychain read can
+       only be checked from the GUI session this agent runs in. -->
+  <key>StandardOutPath</key>
+  <string>/tmp/keychron-q11-backlight.log</string>
   <key>StandardErrorPath</key>
   <string>/tmp/keychron-q11-backlight.log</string>
   <!-- Poll, don't schedule. Two calendar points left the keyboard wrong for
