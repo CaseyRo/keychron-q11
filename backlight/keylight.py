@@ -18,6 +18,7 @@ usage: uv run keylight.py on|off|auto|status|selftest
 
 import datetime
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -62,6 +63,10 @@ def ha_url() -> str | None:
 
 
 def ha_token() -> str | None:
+    # Env first so this stays testable over ssh, where the login keychain
+    # isn't reachable. The launchd agent runs in the GUI session, where it is.
+    if env := os.environ.get("HA_TOKEN"):
+        return env
     out = subprocess.run(
         ["security", "find-generic-password", "-s", HA_KEYCHAIN_SERVICE, "-w"],
         capture_output=True, text=True,
