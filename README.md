@@ -147,7 +147,7 @@ host hangs straight past it).
 
 ```bash
 hs -c 'return q11MTap:isEnabled()'      # lies — see trap 3
-hs -c 'return #hs.hotkey.getHotkeys()'  # expect 12
+hs -c 'return #hs.hotkey.getHotkeys()'  # expect 10 — F14/F15 must NOT appear
 hs -c 'return hs.accessibilityState()'
 ```
 
