@@ -29,7 +29,7 @@ the terminal path leaves the machine, so if the encoder works everywhere
 | right knob (Spotify layer) | anywhere | Spotify app volume / play-pause — independent of system volume |
 | 3-finger swipe up | anywhere | cross-Space window Exposé (`rcmd expose`) |
 | 3-finger swipe down | anywhere | show desktop |
-| 4-finger swipe ←/→ | anywhere | previous / next rcmd stage |
+| 4-finger tap | anywhere | pick a stage from a list of all of them |
 | ⌘ + 4-finger swipe ←/→ | anywhere | place window left / right half |
 | ⌘ + 4-finger swipe ↑/↓ | anywhere | maximize / centre window |
 | backlight | house mode `day`/`away` | off; restored on every other mode (launchd, 10 min poll) |
@@ -57,23 +57,33 @@ The layout keeps three fingers for *looking* at windows and four for
 | Fingers | Modifier | Territory |
 | --- | --- | --- |
 | 3 | none | Exposé / show desktop — the swipes BTT had here |
-| 4 | none | walk the rcmd stages |
+| 4, tapped | none | pick a stage |
 | 4 | ⌘ | window placement (`rcmd window place`) |
 
 A **stage** is a saved set of windows; with `spaceMode: single` it is what
 this machine uses instead of Spaces, which is why there is only ever one
-Space. `rcmd stage` has no next/prev verb — stages are keyed by a letter,
-not an ordinal — so cycling reads `rcmd stage list --json` and steps from
-whichever entry reports `isActive`. Nothing active is the normal resting
-state, so a forward swipe starts at the first stage and a backward one at
-the last.
+Space.
+
+Tapping four fingers lists every stage and activates whichever you pick.
+rcmd's own stage overview is bound to *holding* `caps` and has no CLI
+verb — `rcmd osd` only drives the search surfaces (`app`, `window`,
+`hide`) — and a hold-to-show OSD does not map onto a momentary tap in any
+case. So the list is built from `rcmd stage list --json` and shown in an
+`hs.chooser`, which types-to-filter and picks rather than only displays.
+A physical four-finger *click* registers as a tap too: the fingers are
+down, still, and briefly.
+
+A tap is recognised as the absence of a swipe — under `TAP_TRAVEL` of
+movement, released inside `TAP_HOLD`. `TAP_TRAVEL` sits well below
+`SWIPE_MIN`, and the gap between them is a deliberate dead zone so a
+swipe that dies early resolves to nothing rather than to a tap.
 
 Two things are deliberately *not* bound:
 
 - **Closing a stage.** `stageCloseAction` is `close`, so `rcmd stage
   close` shuts the real windows — including any terminal running an
-  agent. Switching stages is reversible, closing them is not, and a
-  four-finger swipe is too easy to hit by accident for that trade.
+  agent. Switching stages is reversible, closing them is not, and no
+  stray gesture should be able to do it.
 - **Saving a stage, and re-applying its placements.** Both are
   keyboard-only (`stageAssignKey` / `stageRepositionKey` under `caps`)
   with no CLI equivalent, so a gesture cannot reach them at all.

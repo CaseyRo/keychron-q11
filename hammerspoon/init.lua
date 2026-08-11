@@ -161,29 +161,38 @@ local function rcmd(...)
   hs.task.new(RCMD, nil, { ... }):start()
 end
 
--- Which entry a stage swipe lands on. Pure, so the wrap-around is checkable
--- without a trackpad. i == 0 means no stage is active, which is rcmd's normal
--- resting state — it only marks one after an explicit activate, so a forward
--- swipe should start at the first stage and a backward one at the last.
-local function stageStep(i, delta, n)
-  if n == 0 then return nil end
-  if i == 0 then return delta > 0 and 1 or n end
-  return ((i - 1 + delta) % n) + 1 -- Lua's % is floored, so delta = -1 wraps
-end
-
--- rcmd has no next/prev verb: stages are keyed by a letter, not an ordinal, so
--- cycling means reading the list and stepping from whichever reports isActive.
-local function cycleStage(delta)
+-- Show every stage and activate the one picked. rcmd's own stage overview is
+-- bound to holding `caps` and has no CLI verb at all (`rcmd osd` only does the
+-- search surfaces: app, window, hide), and a hold-to-show OSD does not map onto
+-- a momentary tap anyway — so build the list from `stage list --json` and make
+-- it pick rather than merely display.
+local function showStages()
   hs.task.new(RCMD, function(code, out)
     if code ~= 0 then return end
     local ok, data = pcall(hs.json.decode, out)
     if not ok or type(data) ~= "table" or type(data.stages) ~= "table" then return end
-    local active = 0
-    for k, s in ipairs(data.stages) do
-      if s.isActive then active = k end
+    local choices = {}
+    for _, s in ipairs(data.stages) do
+      local count = #(s.items or {})
+      choices[#choices + 1] = {
+        text = s.name or tostring(s.key),
+        subText = ("%s%d window%s · caps-%s"):format(
+          s.isActive and "active · " or "", count,
+          count == 1 and "" or "s", tostring(s.key):upper()),
+        key = s.key,
+      }
     end
-    local target = data.stages[stageStep(active, delta, #data.stages) or 0]
-    if target and target.key then rcmd("stage", "activate", target.key) end
+    if #choices == 0 then return end
+    -- Rebuilt per invocation so the list cannot go stale; the old one is
+    -- deleted rather than left for GC, same reasoning as the taps.
+    if q11StageChooser then q11StageChooser:delete() end
+    q11StageChooser = hs.chooser.new(function(pick)
+      if pick and pick.key then rcmd("stage", "activate", pick.key) end
+    end)
+    q11StageChooser:placeholderText("stage")
+    q11StageChooser:rows(#choices)
+    q11StageChooser:choices(choices)
+    q11StageChooser:show()
   end, { "stage", "list", "--json" }):start()
 end
 
@@ -197,11 +206,12 @@ local GESTURES = {
   { fingers = 4, dir = "right", cmd = true, action = function() rcmd("window", "place", "right-half") end },
   { fingers = 4, dir = "up",    cmd = true, action = function() rcmd("window", "place", "maximized") end },
   { fingers = 4, dir = "down",  cmd = true, action = function() rcmd("window", "place", "center") end },
-  -- four bare: walk the stages. Deliberately no `stage close` on the vertical —
-  -- stageCloseAction is `close`, so a stray swipe would shut real windows (and
-  -- any agent running in them). Switching stages is reversible; that is not.
-  { fingers = 4, dir = "left",  cmd = false, action = function() cycleStage(-1) end },
-  { fingers = 4, dir = "right", cmd = false, action = function() cycleStage(1) end },
+  -- four bare, tapped: pick a stage. A four-finger *swipe* is an awkward motion
+  -- and was dropped; a physical four-finger click reads as a tap here too,
+  -- since the fingers are down, still, and briefly. Deliberately no `stage
+  -- close` anywhere — stageCloseAction is `close`, so it shuts real windows and
+  -- any agent inside them, which no stray gesture should be able to do.
+  { fingers = 4, dir = "tap",   cmd = false, action = showStages },
 }
 -- Travel a swipe must cover to count, as a fraction of the trackpad. This is
 -- the tuning knob: raise it if resting fingers trigger something, lower it if
@@ -216,6 +226,17 @@ local SWIPE_RATIO = 1.5
 -- chopped one measured swipe into ~25 fragments of a few thousandths each, so
 -- a zero-touch event means "no news" and the gesture ends on this quiet timer.
 local SWIPE_IDLE = 0.08
+-- A tap is the absence of a swipe: fingers down and up again quickly without
+-- travelling. TAP_TRAVEL must stay well under SWIPE_MIN, or a swipe that dies
+-- early reads as a tap; the gap between them is a dead zone on purpose.
+-- TAP_HOLD keeps resting four fingers on the trackpad from counting.
+local TAP_TRAVEL = 0.02
+local TAP_HOLD = 0.4
+
+-- Pure, like swipeDir, so both are checkable without a trackpad.
+local function isTap(travel, held)
+  return travel <= TAP_TRAVEL and held <= TAP_HOLD
+end
 
 -- Pure, so it can be checked without a trackpad — see q11SwipeSelfTest below.
 local function swipeDir(dx, dy)
@@ -241,20 +262,20 @@ function q11SwipeSelfTest()
       :format(c[1], c[2], tostring(got), tostring(c[3])))
   end
 
-  -- stage cycling: wrap in both directions, and the nothing-active case
-  local steps = {
-    { 1, 1, 3, 2 }, { 3, 1, 3, 1 },  -- forward, and forward off the end
-    { 1, -1, 3, 3 }, { 2, -1, 3, 1 }, -- backward off the front, and normal
-    { 0, 1, 3, 1 }, { 0, -1, 3, 3 },  -- nothing active: first / last
-    { 1, 1, 1, 1 },                   -- single stage stays put
-    { 0, 1, 0, nil },                 -- no stages at all
+  -- taps, and the things that must not read as one
+  local taps = {
+    { 0, 0.10, true },       -- dead still, quick
+    { 0.015, 0.30, true },   -- slight wobble, still a tap
+    { 0.05, 0.10, false },   -- travelled: a swipe that died in the dead zone
+    { 0.01, 1.20, false },   -- barely moved but held: resting, not tapping
+    { 0.20, 0.10, false },   -- a real swipe
   }
-  for _, c in ipairs(steps) do
-    local got = stageStep(c[1], c[2], c[3])
-    assert(got == c[4], ("stageStep(%s,%s,%s)=%s want %s")
-      :format(c[1], c[2], c[3], tostring(got), tostring(c[4])))
+  for _, c in ipairs(taps) do
+    local got = isTap(c[1], c[2])
+    assert(got == c[3], ("isTap(%s,%s)=%s want %s")
+      :format(c[1], c[2], tostring(got), tostring(c[3])))
   end
-  return "selftest ok (swipe + stage)"
+  return "selftest ok (swipe + tap)"
 end
 
 -- Gesture events stream continuously while fingers are down and a tap callback
@@ -297,16 +318,25 @@ end
 q11Swipe = nil      -- in-flight gesture; global so a reload can't strand it
 q11SwipeTimer = nil -- reused, not recreated: this runs thousands of times a swipe
 
--- End of gesture. The action has already fired by now (mid-swipe, the moment
--- the threshold was crossed) — this only records the full travel for
--- calibration and clears the slate for the next one.
+-- End of gesture. A swipe has already fired by now — mid-motion, the moment it
+-- crossed the threshold. A tap can only be recognised here, by having failed to
+-- become a swipe before the fingers left.
 local function finalizeSwipe()
   local s = q11Swipe
   q11Swipe, q11SwipeTimer = nil, nil
   if not s then return end
+  local dx, dy = s.x - s.x0, s.y - s.y0
+  local travel = math.max(math.abs(dx), math.abs(dy))
+  -- tLast, not "now": finalize runs SWIPE_IDLE after the last touch, and
+  -- charging that idle to the hold would silently shorten every tap window.
+  local held = (s.tLast - s.t0) / 1e9
+  local tapped = not s.fired and isTap(travel, held)
+  if tapped then runGesture(s.n, s.cmd, "tap") end
   if q11SwipeDebug then
-    q11SwipeLog[#q11SwipeLog + 1] = ("fingers=%d dx=%+.4f dy=%+.4f cmd=%s fired=%s")
-      :format(s.n, s.x - s.x0, s.y - s.y0, tostring(s.cmd), tostring(s.fired or false))
+    q11SwipeLog[#q11SwipeLog + 1] =
+      ("fingers=%d dx=%+.4f dy=%+.4f held=%.2fs cmd=%s -> %s")
+        :format(s.n, dx, dy, held, tostring(s.cmd),
+          s.fired and "swipe" or (tapped and "tap" or "nothing"))
     if #q11SwipeLog > 20 then table.remove(q11SwipeLog, 1) end
   end
 end
@@ -345,11 +375,13 @@ q11GestureTap = hs.eventtap.new({ hs.eventtap.event.types.gesture, SCROLL }, fun
   if not s or n > s.n then
     -- Anchor when the last finger lands, not the first: fingers touch down on
     -- different events, and anchoring early folds that stagger into the delta.
-    s = { n = n, x0 = cx, y0 = cy, x = cx, y = cy, cmd = false, armed = false }
+    s = { n = n, x0 = cx, y0 = cy, x = cx, y = cy, cmd = false, armed = false,
+          t0 = hs.timer.absoluteTime() }
     q11Swipe = s
   elseif n == s.n then
     s.x, s.y = cx, cy -- fingers lifting (n < s.n) must not drag the endpoint
   end
+  s.tLast = hs.timer.absoluteTime() -- how long the fingers were actually down
   if e:getFlags().cmd then s.cmd = true end -- latched: an early release still counts
   s.armed = gestureArmed(s.n, s.cmd)
 
