@@ -231,8 +231,10 @@ end
 -- Calibration rig for SWIPE_MIN on a trackpad that reads differently from the
 -- one this was tuned on:
 --   hs -c "q11SwipeDebug = true"   swipe a few times   hs -c "q11SwipeReport()"
--- A ring buffer, not print(): output from a tap callback never reaches
--- hs.console.getConsole(), so a printed number is unreadable over hs -c.
+-- A ring buffer, not print(). hs.ipc (required at the top of this file)
+-- permanently replaces the global print, and outside an active `hs -c` command
+-- that replacement indexes a dead connection and throws — so a print() in here
+-- would abort the callback mid-swipe, not merely fail to show up anywhere.
 q11SwipeDebug = false
 q11SwipeLog = {}
 
