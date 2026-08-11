@@ -162,8 +162,17 @@ local function rcmd(...)
 end
 
 local GESTURES = {
-  { fingers = 3, dir = "up",   cmd = true, action = function() rcmd("expose") end },
-  { fingers = 3, dir = "down", cmd = true, action = hs.spaces.toggleShowDesktop },
+  -- three bare: what the BTT preset had on these exact swipes for years
+  { fingers = 3, dir = "up",    cmd = false, action = function() rcmd("expose") end },
+  { fingers = 3, dir = "down",  cmd = false, action = hs.spaces.toggleShowDesktop },
+  -- cmd + four: window placement. `place` takes halves, corners, thirds and
+  -- quarters too — see `rcmd help window place` before adding more.
+  { fingers = 4, dir = "left",  cmd = true, action = function() rcmd("window", "place", "left-half") end },
+  { fingers = 4, dir = "right", cmd = true, action = function() rcmd("window", "place", "right-half") end },
+  { fingers = 4, dir = "up",    cmd = true, action = function() rcmd("window", "place", "maximized") end },
+  { fingers = 4, dir = "down",  cmd = true, action = function() rcmd("window", "place", "center") end },
+  -- four bare is reserved for stage switching; it needs the shape of
+  -- `rcmd stage list --json`, which is unknowable while no stage exists.
 }
 -- Travel a swipe must cover to count, as a fraction of the trackpad. This is
 -- the tuning knob: raise it if resting fingers trigger something, lower it if

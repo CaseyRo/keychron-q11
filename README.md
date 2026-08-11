@@ -27,8 +27,10 @@ the terminal path leaves the machine, so if the encoder works everywhere
 | right knob (base) | anywhere | ↑ / ↓ / Enter — drive TUI menus (Claude Code, fzf, …) |
 | right knob (scroll layer) | anywhere | scroll under pointer; press = jump to bottom |
 | right knob (Spotify layer) | anywhere | Spotify app volume / play-pause — independent of system volume |
-| ⌘ + 3-finger swipe up | anywhere | cross-Space window Exposé (`rcmd expose`) |
-| ⌘ + 3-finger swipe down | anywhere | show desktop |
+| 3-finger swipe up | anywhere | cross-Space window Exposé (`rcmd expose`) |
+| 3-finger swipe down | anywhere | show desktop |
+| ⌘ + 4-finger swipe ←/→ | anywhere | place window left / right half |
+| ⌘ + 4-finger swipe ↑/↓ | anywhere | maximize / centre window |
 | backlight | house mode `day`/`away` | off; restored on every other mode (launchd, 10 min poll) |
 
 Workspace navigation speaks to **herdr** (a terminal workspace manager)
@@ -46,7 +48,30 @@ there.
 `⌘` is a preference, not a workaround: every macOS three- and
 four-finger swipe is switched off on this machine
 (`TrackpadThreeFingerVertSwipeGesture = 0`), so nothing competes for the
-bare swipe. Set a row's `cmd = false` to claim it.
+bare swipe. A row's `cmd` field picks which one you want.
+
+The layout keeps three fingers for *looking* at windows and four for
+*moving* them:
+
+| Fingers | Modifier | Territory |
+| --- | --- | --- |
+| 3 | none | Exposé / show desktop — the swipes BTT had here |
+| 4 | ⌘ | window placement (`rcmd window place`) |
+| 4 | none | stage switching — **not wired yet**, see below |
+
+Four bare is reserved for rcmd **stages** — a stage being a saved set of
+windows, which in `spaceMode: single` is what this machine uses instead
+of Spaces. It is not wired up, for a concrete reason: `rcmd stage`
+exposes only `list`, `activate <key>` and `close`, and stages are keyed
+by letter rather than ordinal, so "next stage" means reading
+`rcmd stage list --json` and stepping from the active entry. With no
+stage configured that call returns `{"stages":[]}`, which gives no way to
+learn the field names — guessing them ships a silent no-op. Create one
+stage first, then the cycle can be written against a known shape.
+
+Note also that saving a stage and re-applying its placements are
+keyboard-only (`stageAssignKey` / `stageRepositionKey` under `caps`);
+there is no CLI verb for either, so a gesture cannot do those two.
 
 A swipe fires **the moment it crosses `SWIPE_MIN`**, not when the fingers
 lift — waiting for release makes an already-recognisable gesture feel
