@@ -104,16 +104,23 @@ macOS interleaves gesture events that carry **no touches at all** between
 the ones carrying fingers, so treating a zero-touch event as "fingers
 lifted" shatters one swipe into dozens of fragments — the gesture ends on
 a quiet timer (`SWIPE_IDLE`) instead. And travel distance varies by
-device, so `SWIPE_MIN` needs measuring rather than guessing:
+device, so `SWIPE_MIN` and `TAP_TRAVEL` need measuring rather than
+guessing:
 
 ```bash
-hs -c "q11SwipeDebug = true"   # swipe a few times, then:
-hs -c "q11SwipeReport()"       # fingers=3 dx=+0.0050 dy=+0.1840 cmd=true fired=true
+hs -c "q11SwipeDebug = true"   # gesture a few times, then:
+hs -c "q11SwipeReport()"
+# fingers=3 dx=+0.0050 dy=+0.1840 held=0.18s cmd=false -> swipe
+# fingers=4 dx=+0.0004 dy=-0.0011 held=0.09s cmd=false -> tap
+# fingers=3 dx=+0.0030 dy=+0.0410 held=0.22s cmd=false -> nothing
 ```
 
 Set `SWIPE_MIN` below the `dy` of a lazy swipe and above the largest
-stray one. `hs -c "q11SwipeSelfTest()"` checks the direction classifier
-and the stage wrap-around without needing a trackpad.
+stray one. The `-> nothing` rows are the ones that landed in the dead
+zone between `TAP_TRAVEL` and `SWIPE_MIN`; a gesture you meant showing up
+there is the signal to move one of the two. `hs -c "q11SwipeSelfTest()"`
+checks the direction classifier and the tap thresholds without needing a
+trackpad.
 
 ## The protocol discovery
 
