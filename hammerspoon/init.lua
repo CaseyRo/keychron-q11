@@ -161,6 +161,32 @@ local function rcmd(...)
   hs.task.new(RCMD, nil, { ... }):start()
 end
 
+-- Which entry a stage swipe lands on. Pure, so the wrap-around is checkable
+-- without a trackpad. i == 0 means no stage is active, which is rcmd's normal
+-- resting state — it only marks one after an explicit activate, so a forward
+-- swipe should start at the first stage and a backward one at the last.
+local function stageStep(i, delta, n)
+  if n == 0 then return nil end
+  if i == 0 then return delta > 0 and 1 or n end
+  return ((i - 1 + delta) % n) + 1 -- Lua's % is floored, so delta = -1 wraps
+end
+
+-- rcmd has no next/prev verb: stages are keyed by a letter, not an ordinal, so
+-- cycling means reading the list and stepping from whichever reports isActive.
+local function cycleStage(delta)
+  hs.task.new(RCMD, function(code, out)
+    if code ~= 0 then return end
+    local ok, data = pcall(hs.json.decode, out)
+    if not ok or type(data) ~= "table" or type(data.stages) ~= "table" then return end
+    local active = 0
+    for k, s in ipairs(data.stages) do
+      if s.isActive then active = k end
+    end
+    local target = data.stages[stageStep(active, delta, #data.stages) or 0]
+    if target and target.key then rcmd("stage", "activate", target.key) end
+  end, { "stage", "list", "--json" }):start()
+end
+
 local GESTURES = {
   -- three bare: what the BTT preset had on these exact swipes for years
   { fingers = 3, dir = "up",    cmd = false, action = function() rcmd("expose") end },
@@ -171,8 +197,11 @@ local GESTURES = {
   { fingers = 4, dir = "right", cmd = true, action = function() rcmd("window", "place", "right-half") end },
   { fingers = 4, dir = "up",    cmd = true, action = function() rcmd("window", "place", "maximized") end },
   { fingers = 4, dir = "down",  cmd = true, action = function() rcmd("window", "place", "center") end },
-  -- four bare is reserved for stage switching; it needs the shape of
-  -- `rcmd stage list --json`, which is unknowable while no stage exists.
+  -- four bare: walk the stages. Deliberately no `stage close` on the vertical —
+  -- stageCloseAction is `close`, so a stray swipe would shut real windows (and
+  -- any agent running in them). Switching stages is reversible; that is not.
+  { fingers = 4, dir = "left",  cmd = false, action = function() cycleStage(-1) end },
+  { fingers = 4, dir = "right", cmd = false, action = function() cycleStage(1) end },
 }
 -- Travel a swipe must cover to count, as a fraction of the trackpad. This is
 -- the tuning knob: raise it if resting fingers trigger something, lower it if
@@ -211,7 +240,21 @@ function q11SwipeSelfTest()
     assert(got == c[3], ("swipeDir(%s,%s)=%s want %s")
       :format(c[1], c[2], tostring(got), tostring(c[3])))
   end
-  return "swipe selftest ok"
+
+  -- stage cycling: wrap in both directions, and the nothing-active case
+  local steps = {
+    { 1, 1, 3, 2 }, { 3, 1, 3, 1 },  -- forward, and forward off the end
+    { 1, -1, 3, 3 }, { 2, -1, 3, 1 }, -- backward off the front, and normal
+    { 0, 1, 3, 1 }, { 0, -1, 3, 3 },  -- nothing active: first / last
+    { 1, 1, 1, 1 },                   -- single stage stays put
+    { 0, 1, 0, nil },                 -- no stages at all
+  }
+  for _, c in ipairs(steps) do
+    local got = stageStep(c[1], c[2], c[3])
+    assert(got == c[4], ("stageStep(%s,%s,%s)=%s want %s")
+      :format(c[1], c[2], c[3], tostring(got), tostring(c[4])))
+  end
+  return "selftest ok (swipe + stage)"
 end
 
 -- Gesture events stream continuously while fingers are down and a tap callback

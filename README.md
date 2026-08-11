@@ -29,6 +29,7 @@ the terminal path leaves the machine, so if the encoder works everywhere
 | right knob (Spotify layer) | anywhere | Spotify app volume / play-pause — independent of system volume |
 | 3-finger swipe up | anywhere | cross-Space window Exposé (`rcmd expose`) |
 | 3-finger swipe down | anywhere | show desktop |
+| 4-finger swipe ←/→ | anywhere | previous / next rcmd stage |
 | ⌘ + 4-finger swipe ←/→ | anywhere | place window left / right half |
 | ⌘ + 4-finger swipe ↑/↓ | anywhere | maximize / centre window |
 | backlight | house mode `day`/`away` | off; restored on every other mode (launchd, 10 min poll) |
@@ -56,22 +57,26 @@ The layout keeps three fingers for *looking* at windows and four for
 | Fingers | Modifier | Territory |
 | --- | --- | --- |
 | 3 | none | Exposé / show desktop — the swipes BTT had here |
+| 4 | none | walk the rcmd stages |
 | 4 | ⌘ | window placement (`rcmd window place`) |
-| 4 | none | stage switching — **not wired yet**, see below |
 
-Four bare is reserved for rcmd **stages** — a stage being a saved set of
-windows, which in `spaceMode: single` is what this machine uses instead
-of Spaces. It is not wired up, for a concrete reason: `rcmd stage`
-exposes only `list`, `activate <key>` and `close`, and stages are keyed
-by letter rather than ordinal, so "next stage" means reading
-`rcmd stage list --json` and stepping from the active entry. With no
-stage configured that call returns `{"stages":[]}`, which gives no way to
-learn the field names — guessing them ships a silent no-op. Create one
-stage first, then the cycle can be written against a known shape.
+A **stage** is a saved set of windows; with `spaceMode: single` it is what
+this machine uses instead of Spaces, which is why there is only ever one
+Space. `rcmd stage` has no next/prev verb — stages are keyed by a letter,
+not an ordinal — so cycling reads `rcmd stage list --json` and steps from
+whichever entry reports `isActive`. Nothing active is the normal resting
+state, so a forward swipe starts at the first stage and a backward one at
+the last.
 
-Note also that saving a stage and re-applying its placements are
-keyboard-only (`stageAssignKey` / `stageRepositionKey` under `caps`);
-there is no CLI verb for either, so a gesture cannot do those two.
+Two things are deliberately *not* bound:
+
+- **Closing a stage.** `stageCloseAction` is `close`, so `rcmd stage
+  close` shuts the real windows — including any terminal running an
+  agent. Switching stages is reversible, closing them is not, and a
+  four-finger swipe is too easy to hit by accident for that trade.
+- **Saving a stage, and re-applying its placements.** Both are
+  keyboard-only (`stageAssignKey` / `stageRepositionKey` under `caps`)
+  with no CLI equivalent, so a gesture cannot reach them at all.
 
 A swipe fires **the moment it crosses `SWIPE_MIN`**, not when the fingers
 lift — waiting for release makes an already-recognisable gesture feel
@@ -98,7 +103,7 @@ hs -c "q11SwipeReport()"       # fingers=3 dx=+0.0050 dy=+0.1840 cmd=true fired=
 
 Set `SWIPE_MIN` below the `dy` of a lazy swipe and above the largest
 stray one. `hs -c "q11SwipeSelfTest()"` checks the direction classifier
-without a trackpad.
+and the stage wrap-around without needing a trackpad.
 
 ## The protocol discovery
 
