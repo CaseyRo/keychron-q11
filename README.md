@@ -27,12 +27,53 @@ the terminal path leaves the machine, so if the encoder works everywhere
 | right knob (base) | anywhere | ↑ / ↓ / Enter — drive TUI menus (Claude Code, fzf, …) |
 | right knob (scroll layer) | anywhere | scroll under pointer; press = jump to bottom |
 | right knob (Spotify layer) | anywhere | Spotify app volume / play-pause — independent of system volume |
+| ⌘ + 3-finger swipe up | anywhere | cross-Space window Exposé (`rcmd expose`) |
+| ⌘ + 3-finger swipe down | anywhere | show desktop |
 | backlight | house mode `day`/`away` | off; restored on every other mode (launchd, 10 min poll) |
 
 Workspace navigation speaks to **herdr** (a terminal workspace manager)
 over its socket API — optionally on a remote host via multiplexed ssh.
 **No herdr? Everything degrades to plain `Cmd+N` / tab-cycling
 keystrokes** — set `REMOTE = nil` in `hammerspoon/init.lua`.
+
+## Trackpad gestures
+
+The two swipes replace a BetterTouchTool preset, so BTT is no longer
+needed for them. They are one row each in the `GESTURES` table in
+`hammerspoon/init.lua` — add a direction or change the finger count
+there.
+
+`⌘` is a preference, not a workaround: every macOS three- and
+four-finger swipe is switched off on this machine
+(`TrackpadThreeFingerVertSwipeGesture = 0`), so nothing competes for the
+bare swipe. Set a row's `cmd = false` to claim it.
+
+A swipe fires **the moment it crosses `SWIPE_MIN`**, not when the fingers
+lift — waiting for release makes an already-recognisable gesture feel
+like it lagged. One swipe fires one action.
+
+The fingers driving a swipe drive a **scroll** as well, on a separate
+event stream, so the window underneath scrolls for as long as
+recognition takes unless that stream is swallowed too. Both streams are
+suppressed only while a finger count *and* modifier already bound in
+`GESTURES` is in flight, so ordinary two-finger scrolling is never
+touched.
+
+Two more things are worth knowing before tuning this on another trackpad.
+macOS interleaves gesture events that carry **no touches at all** between
+the ones carrying fingers, so treating a zero-touch event as "fingers
+lifted" shatters one swipe into dozens of fragments — the gesture ends on
+a quiet timer (`SWIPE_IDLE`) instead. And travel distance varies by
+device, so `SWIPE_MIN` needs measuring rather than guessing:
+
+```bash
+hs -c "q11SwipeDebug = true"   # swipe a few times, then:
+hs -c "q11SwipeReport()"       # fingers=3 dx=+0.0050 dy=+0.1840 cmd=true fired=true
+```
+
+Set `SWIPE_MIN` below the `dy` of a lazy swipe and above the largest
+stray one. `hs -c "q11SwipeSelfTest()"` checks the direction classifier
+without a trackpad.
 
 ## The protocol discovery
 
