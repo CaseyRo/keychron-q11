@@ -249,6 +249,10 @@ local SWIPE_RATIO = 1.5
 -- chopped one measured swipe into ~25 fragments of a few thousandths each, so
 -- a zero-touch event means "no news" and the gesture ends on this quiet timer.
 local SWIPE_IDLE = 0.08
+-- How long the scroll swallow outlives the last full-count touch: long enough
+-- to eat the momentum handoff, short enough that a lifted hand gets scrolling
+-- back straight away.
+local SCROLL_HOLD = 0.25
 -- A tap is the absence of a swipe: fingers down and up again quickly without
 -- travelling. TAP_TRAVEL must stay well under SWIPE_MIN, or a swipe that dies
 -- early reads as a tap; the gap between them is a dead zone on purpose.
@@ -259,6 +263,11 @@ local TAP_HOLD = 0.4
 -- Pure, like swipeDir, so both are checkable without a trackpad.
 local function isTap(travel, held)
   return travel <= TAP_TRAVEL and held <= TAP_HOLD
+end
+
+-- Pure too. Nanoseconds, because that is what hs.timer.absoluteTime deals in.
+local function scrollSwallowed(now, tFull)
+  return (now - tFull) / 1e9 <= SCROLL_HOLD
 end
 
 -- Pure, so it can be checked without a trackpad — see q11SwipeSelfTest below.
@@ -298,7 +307,21 @@ function q11SwipeSelfTest()
     assert(got == c[3], ("isTap(%s,%s)=%s want %s")
       :format(c[1], c[2], tostring(got), tostring(c[3])))
   end
-  return "selftest ok (swipe + tap)"
+  -- the scroll swallow, which must never outlive the fingers by more than
+  -- SCROLL_HOLD however long the scrolling itself runs on
+  local T, S = 1e12, 1e9 -- an arbitrary now, and one second in those units
+  local holds = {
+    { 0,    true },   -- fingers still down
+    { 0.10, true },   -- momentum handoff, still ours to eat
+    { 0.50, false },  -- long past: the app gets its scrolling back
+    { 5.0,  false },  -- where a swallow that fed itself used to live
+  }
+  for _, c in ipairs(holds) do
+    local got = scrollSwallowed(T + c[1] * S, T)
+    assert(got == c[2], ("scrollSwallowed(+%.2fs)=%s want %s")
+      :format(c[1], tostring(got), tostring(c[2])))
+  end
+  return "selftest ok (swipe + tap + swallow)"
 end
 
 -- Gesture events stream continuously while fingers are down and a tap callback
@@ -377,11 +400,13 @@ q11GestureTap = hs.eventtap.new({ hs.eventtap.event.types.gesture, SCROLL }, fun
   -- two-finger scrolling never reaches the branch.
   if e:getType() == SCROLL then
     local s = q11Swipe
-    if not (s and s.armed) then return false end
-    -- Hold the window open past the last touch, or momentum scrolling lands
-    -- in the app right after the gesture is recognised.
-    if q11SwipeTimer then q11SwipeTimer:setNextTrigger(SWIPE_IDLE) end
-    return true
+    if not (s and s.armed and s.tFull) then return false end
+    -- Hold the window open past the last touch, or momentum scrolling lands in
+    -- the app right after the gesture is recognised. Measured from the last
+    -- full-count touch and deliberately not refreshed here: extending the
+    -- window from inside the swallow made it feed itself, so scrolling stayed
+    -- suppressed for as long as the scrolling continued.
+    return scrollSwallowed(hs.timer.absoluteTime(), s.tFull)
   end
 
   local touches = e:getTouches()
@@ -407,7 +432,13 @@ q11GestureTap = hs.eventtap.new({ hs.eventtap.event.types.gesture, SCROLL }, fun
   elseif n == s.n then
     s.x, s.y = cx, cy -- fingers lifting (n < s.n) must not drag the endpoint
   end
-  s.tLast = hs.timer.absoluteTime() -- how long the fingers were actually down
+  local now = hs.timer.absoluteTime()
+  s.tLast = now -- how long the fingers were actually down
+  -- Last moment the full count was on the pad. tLast keeps advancing as the
+  -- hand lifts away — a partial lift to two fingers still refreshes it — so
+  -- keying the swallow off tLast left ordinary two-finger scrolling dead after
+  -- any three- or four-finger contact.
+  if n == s.n then s.tFull = now end
   if e:getFlags().cmd then s.cmd = true end -- latched: an early release still counts
   s.armed = gestureArmed(s.n, s.cmd)
 
