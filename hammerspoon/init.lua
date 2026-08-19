@@ -19,7 +19,30 @@ local TERMINALS = { "dev.warp.Warp-Stable", "com.googlecode.iterm2" }
 -- Ceiling on one herdr call, seconds. Past this, fall back to the local
 -- keystroke rather than let presses queue behind a dead ssh.
 local HERDR_TIMEOUT = 3
+-- Apps that own the trackpad outright, by bundle ID. Games read raw finger
+-- movement, so the gesture layer stands down while one is frontmost. Read a
+-- real ID rather than guessing — by name, since asking for the frontmost app
+-- from a terminal just names the terminal:
+--   osascript -e 'id of app "Factorio"'
+-- Steam itself is listed for its own window; a game launched through Steam is
+-- a separate app and needs its own line here.
+local MUTE_APPS = {
+  ["com.factorio"] = true,
+  ["com.valvesoftware.steam"] = true,
+}
 -- ────────────────────────────────────────────────────────────────────────
+
+-- Muting is a flag the gesture callback reads, not a tap that gets stopped:
+-- q11Health re-arms the taps every 30s regardless, so a stopped one would come
+-- back by itself mid-game. Seeded from the current app so a reload while the
+-- game is already frontmost starts muted, not on the next app switch.
+local function muteApp(app)
+  return app ~= nil and MUTE_APPS[app:bundleID()] == true
+end
+q11Muted = muteApp(hs.application.frontmostApplication())
+q11AppWatcher = hs.application.watcher.new(function(_, event, app)
+  if event == hs.application.watcher.activated then q11Muted = muteApp(app) end
+end):start()
 
 local function terminalFrontmost()
   local app = hs.application.frontmostApplication()
@@ -344,6 +367,9 @@ end
 local SCROLL = hs.eventtap.event.types.scrollWheel
 
 q11GestureTap = hs.eventtap.new({ hs.eventtap.event.types.gesture, SCROLL }, function(e)
+  -- Stand down entirely for a muted app: no swipe fired, and — the point — no
+  -- scroll swallowed, so the game keeps every event the trackpad sends.
+  if q11Muted then return false end
   -- The fingers driving a swipe also drive a scroll, on a separate event
   -- stream: without swallowing it the window underneath scrolls for as long as
   -- the swipe takes to recognise. Gated on `armed`, so this can only ever
@@ -419,6 +445,7 @@ function hs.shutdownCallback()
   if q11MTap then q11MTap:stop() end
   if q11GestureTap then q11GestureTap:stop() end
   if q11Watcher then q11Watcher:stop() end
+  if q11AppWatcher then q11AppWatcher:stop() end
   if q11Health then q11Health:stop() end
 end
 
