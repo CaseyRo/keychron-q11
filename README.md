@@ -33,6 +33,7 @@ the terminal path leaves the machine, so if the encoder works everywhere
 | ⌘ + 4-finger swipe ←/→ | anywhere | place window left / right half |
 | ⌘ + 4-finger swipe ↑/↓ | anywhere | maximize / centre window |
 | backlight | house mode `day`/`away` | off; restored on every other mode (launchd, 10 min poll) |
+| `⌁` menubar | anywhere | show / switch the 2.4G polling rate, 125–8000 Hz |
 
 Workspace navigation speaks to **herdr** (a terminal workspace manager)
 over its socket API — optionally on a remote host via multiplexed ssh.

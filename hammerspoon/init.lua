@@ -195,7 +195,11 @@ end
 
 q11PollBar = hs.menubar.new() -- global: a local would be GC'd and vanish
 
-local function pollRefresh()
+-- Global, like q11SwipeReport: `hs -c 'q11PollRefresh()'` re-reads on demand
+-- rather than waiting out the timer — which is what you want the moment the
+-- title reads "?" and you are asking whether the keyboard or the code is at
+-- fault.
+function q11PollRefresh()
   if not q11PollBar then return end
   keylight({ "polling" }, function(out)
     -- rf=, not wired=: the cable rate is not what drains the battery.
@@ -210,18 +214,18 @@ local function pollRefresh()
         title = r .. " Hz",
         checked = hz == r,
         fn = function()
-          keylight({ "polling", "2.4g", tostring(r) }, function() pollRefresh() end)
+          keylight({ "polling", "2.4g", tostring(r) }, function() q11PollRefresh() end)
         end,
       }
     end
     q11PollBar:setMenu(menu)
   end)
 end
-pollRefresh()
+q11PollRefresh()
 -- The Launcher can change the rate behind our back; re-read occasionally so a
 -- stale title does not lie. Ten minutes, because spawning uv is not free and
 -- this value changes about never.
-q11PollTimer = hs.timer.doEvery(600, pollRefresh)
+q11PollTimer = hs.timer.doEvery(600, q11PollRefresh)
 
 -- ── trackpad gestures ───────────────────────────────────────────────────
 -- Replaces the BetterTouchTool preset this machine used to run. macOS's own
