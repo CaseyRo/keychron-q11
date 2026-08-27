@@ -16,6 +16,14 @@ local REMOTE = "cc1"
 local REMOTE_HELPER = "dev/keychron-q11/bin/q11-herdr"
 -- Terminals to treat as "the cockpit", in preference order.
 local TERMINALS = { "dev.warp.Warp-Stable", "com.googlecode.iterm2" }
+-- This repo, and uv, for the polling-rate menubar: it shells out to
+-- keylight.py because Lua has no hidapi. Absolute, because hs.task gets no
+-- PATH. Spelled out rather than derived from hs.configdir: install.sh symlinks
+-- ~/.hammerspoon to this directory, so `hs.configdir .. "/.."` does reach the
+-- repo — but only for a symlinked install, and it breaks silently for a copied
+-- one. A constant is one line and cannot be wrong.
+local REPO = os.getenv("HOME") .. "/dev/keychron-q11"
+local UV = "/opt/homebrew/bin/uv"
 -- Ceiling on one herdr call, seconds. Past this, fall back to the local
 -- keystroke rather than let presses queue behind a dead ssh.
 local HERDR_TIMEOUT = 3
@@ -171,6 +179,49 @@ end)
 hs.hotkey.bind(HYPER, "f16", function()
   hs.eventtap.scrollWheel({ 0, -1000000 }, {}, "pixel")
 end)
+
+-- ── polling-rate menubar ────────────────────────────────────────────────
+-- The board keeps separate polling rates for cable and 2.4G and only the
+-- wireless one costs battery, so this switches that one. keylight.py owns the
+-- HID side — same shell-out discipline as rcmd below, and it keeps one writer
+-- for the keyboard rather than a second implementation in Lua.
+local POLL_RATES = { 8000, 4000, 2000, 1000, 500, 250, 125 }
+
+local function keylight(args, done)
+  local argv = { "run", REPO .. "/backlight/keylight.py" }
+  for _, v in ipairs(args) do argv[#argv + 1] = v end
+  hs.task.new(UV, function(code, out) done(code == 0 and out or nil) end, argv):start()
+end
+
+q11PollBar = hs.menubar.new() -- global: a local would be GC'd and vanish
+
+local function pollRefresh()
+  if not q11PollBar then return end
+  keylight({ "polling" }, function(out)
+    -- rf=, not wired=: the cable rate is not what drains the battery.
+    local hz = out and tonumber(out:match("rf=(%d+)"))
+    if not q11PollBar then return end
+    q11PollBar:setTitle(hz
+      and ("⌁" .. (hz >= 1000 and math.floor(hz / 1000) .. "K" or hz))
+      or "⌁?") -- keyboard asleep or Launcher holding the interface
+    local menu = {}
+    for _, r in ipairs(POLL_RATES) do
+      menu[#menu + 1] = {
+        title = r .. " Hz",
+        checked = hz == r,
+        fn = function()
+          keylight({ "polling", "2.4g", tostring(r) }, function() pollRefresh() end)
+        end,
+      }
+    end
+    q11PollBar:setMenu(menu)
+  end)
+end
+pollRefresh()
+-- The Launcher can change the rate behind our back; re-read occasionally so a
+-- stale title does not lie. Ten minutes, because spawning uv is not free and
+-- this value changes about never.
+q11PollTimer = hs.timer.doEvery(600, pollRefresh)
 
 -- ── trackpad gestures ───────────────────────────────────────────────────
 -- Replaces the BetterTouchTool preset this machine used to run. macOS's own
@@ -478,6 +529,8 @@ function hs.shutdownCallback()
   if q11Watcher then q11Watcher:stop() end
   if q11AppWatcher then q11AppWatcher:stop() end
   if q11Health then q11Health:stop() end
+  if q11PollTimer then q11PollTimer:stop() end
+  if q11PollBar then q11PollBar:delete() end
 end
 
 -- macOS silently disables event taps and isEnabled() keeps reporting true, so a
