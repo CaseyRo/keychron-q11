@@ -227,6 +227,18 @@ q11PollRefresh()
 -- this value changes about never.
 q11PollTimer = hs.timer.doEvery(600, q11PollRefresh)
 
+-- The receiver gets unplugged often on this machine, and the timer alone would
+-- leave the title wrong for most of every reconnect. Watch the dongle itself:
+-- gone means "?", back means re-read. The timer stays as the backstop for rate
+-- changes made in the Launcher, which no USB event announces.
+local RECEIVER_VID = 0x3434 -- Keychron; the dongle is 0xd028, the board 0x12b2
+q11UsbWatcher = hs.usb.watcher.new(function(e)
+  if e.vendorID ~= RECEIVER_VID then return end
+  -- On plug-in the USB device shows up before its HID interfaces do, so asking
+  -- immediately just reads "?" and needs the timer to correct it anyway.
+  hs.timer.doAfter(e.eventType == "added" and 1.5 or 0, q11PollRefresh)
+end):start()
+
 -- ── trackpad gestures ───────────────────────────────────────────────────
 -- Replaces the BetterTouchTool preset this machine used to run. macOS's own
 -- three- and four-finger swipes are all switched off here (Trackpad → More
@@ -534,6 +546,7 @@ function hs.shutdownCallback()
   if q11AppWatcher then q11AppWatcher:stop() end
   if q11Health then q11Health:stop() end
   if q11PollTimer then q11PollTimer:stop() end
+  if q11UsbWatcher then q11UsbWatcher:stop() end
   if q11PollBar then q11PollBar:delete() end
 end
 
