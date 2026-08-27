@@ -14,6 +14,8 @@ on a poll, so the keyboard is re-corrected after a reconnect or re-pair
 rather than drifting until the next scheduled flip.
 
 usage: uv run keylight.py on|off|auto|status|selftest
+       uv run keylight.py polling                    show both rates
+       uv run keylight.py polling wired|2.4g <hz>    set one rate
 """
 
 import datetime
@@ -32,6 +34,18 @@ USAGE_PAGE = 0xFF60  # VIA-style vendor collection
 CMD_SET, CMD_GET, CMD_SAVE = 0x07, 0x08, 0x09
 CH_RGB = 0x03  # rgb-matrix channel
 VAL_EFFECT = 0x02  # 0 = off
+
+# Polling rate lives on the `a7` settings channel (docs/protocol.md).
+# `a7 0e` rewrites BOTH transports in one write, so a set must echo back the
+# index of the transport it is not changing — sending one byte silently forces
+# the other to 8000Hz, the worst case for battery.
+CMD_SETTINGS = 0xA7
+SET_POLL_GET, SET_POLL_SET = 0x0D, 0x0E
+POLL_HZ = [8000, 4000, 2000, 1000, 500, 250, 125]  # value index == list index
+# Offsets of the two indices inside the `a7 0d` reply:
+#   a7 0d 00 | 40 1f 7f W | 00 40 1f 7f G
+POLL_OFF_WIRED, POLL_OFF_RF = 6, 11
+LINKS = ("wired", "2.4g")
 
 DEFAULT_ON_EFFECT = 0x10  # fallback when no state file exists yet
 STATE = pathlib.Path.home() / ".local/state/keychron-q11-effect"
@@ -99,6 +113,13 @@ def auto_action(mode: str | None, hour: int) -> str:
     return "off" if DAY_STARTS <= hour < DAY_ENDS else "on"
 
 
+def poll_args(cur: tuple[int, int], link: str, hz: int) -> tuple[int, int]:
+    """New (wired, rf) index pair, preserving the transport not being set."""
+    wired, rf = cur
+    idx = POLL_HZ.index(hz)
+    return (idx, rf) if link == "wired" else (wired, idx)
+
+
 def selftest() -> None:
     assert auto_action("day", 3) == "off"  # HA wins over the clock
     assert auto_action("away", 22) == "off"
@@ -110,6 +131,12 @@ def selftest() -> None:
     assert auto_action(None, 17) == "off"
     assert auto_action(None, 18) == "on"
     assert auto_action(None, 7) == "on"
+
+    # polling: the transport not named must survive untouched
+    assert POLL_HZ.index(8000) == 0 and POLL_HZ.index(2000) == 2
+    assert poll_args((1, 2), "2.4g", 1000) == (1, 3)   # wired 4000 preserved
+    assert poll_args((1, 2), "wired", 8000) == (0, 2)  # 2.4G 2000 preserved
+    assert poll_args((0, 6), "2.4g", 125) == (0, 6)    # idempotent set
     print("selftest ok")
 
 
@@ -147,6 +174,38 @@ def set_effect(dev, effect: int) -> None:
     xfer(dev, CMD_SAVE, CH_RGB)
 
 
+def get_polling(dev) -> tuple[int, int] | None:
+    """(wired_index, rf_index), or None if the reply never arrives."""
+    for _ in range(3):
+        xfer(dev, CMD_SETTINGS, SET_POLL_GET)
+        for _ in range(10):  # skip unrelated interleaved reports
+            resp = dev.read(32, timeout_ms=300)
+            if resp and resp[:3] == [CMD_SETTINGS, SET_POLL_GET, 0x00]:
+                return resp[POLL_OFF_WIRED], resp[POLL_OFF_RF]
+            if not resp:
+                break
+    return None
+
+
+def show_polling(dev) -> None:
+    cur = get_polling(dev)
+    if cur is None:
+        sys.exit("could not read polling rates (Launcher tab open?)")
+    print(f"wired={POLL_HZ[cur[0]]} rf={POLL_HZ[cur[1]]}")
+
+
+def set_polling(dev, link: str, hz: int) -> None:
+    cur = get_polling(dev)
+    if cur is None:
+        sys.exit("could not read polling rates (Launcher tab open?)")
+    wired, rf = poll_args(cur, link, hz)
+    xfer(dev, CMD_SETTINGS, SET_POLL_SET, wired, rf)
+    readback = get_polling(dev)
+    if readback != (wired, rf):
+        sys.exit(f"verify failed: wanted {(wired, rf)}, keyboard reports {readback}")
+    print(f"wired={POLL_HZ[wired]} rf={POLL_HZ[rf]}")
+
+
 def main() -> None:
     action = sys.argv[1] if len(sys.argv) > 1 else "auto"
     if action == "selftest":
@@ -155,6 +214,22 @@ def main() -> None:
         mode = house_mode()
         action = auto_action(mode, datetime.datetime.now().hour)
         print(f"auto: house mode {mode or '(clock)'} -> {action}")
+
+    if action == "polling":
+        dev = open_device()
+        try:
+            if len(sys.argv) == 2:
+                return show_polling(dev)
+            if len(sys.argv) != 4 or sys.argv[2] not in LINKS:
+                sys.exit(f"usage: keylight.py polling [{'|'.join(LINKS)} <hz>]")
+            try:
+                hz = int(sys.argv[3])
+                POLL_HZ.index(hz)
+            except ValueError:
+                sys.exit(f"hz must be one of {POLL_HZ}")
+            return set_polling(dev, sys.argv[2], hz)
+        finally:
+            dev.close()
 
     dev = open_device()
     try:
