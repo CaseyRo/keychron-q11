@@ -50,3 +50,5 @@ independently, so "encoder fine, M keys dead" is a real and useful signal.
   which kind of question.
 - [architecture](architecture.md): the three paths a keypress can take, and
   the design calls behind them.
+- [DOCTRINE](DOCTRINE.md): the structure rules every change to this wiki
+  follows, including what a compiler run may and may not generate.
