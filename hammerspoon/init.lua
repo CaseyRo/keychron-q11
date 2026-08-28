@@ -4,7 +4,7 @@
 -- they mean.
 --
 -- The macOS traps this works around, and the measurements behind the ssh
--- settings, are in README.md → Three macOS traps / Troubleshooting.
+-- settings, are in README.md → Four macOS traps / Troubleshooting.
 
 require("hs.ipc") -- `hs -c "..."` introspection; first, so a later throw is diagnosable
 

@@ -178,7 +178,7 @@ it), then bind your keys **once** in [Keychron Launcher](https://launcher.keychr
 following [docs/launcher-keymap.md](docs/launcher-keymap.md) — that file
 also explains the macOS traps below, learned the hard way.
 
-## Three macOS traps (read before changing bindings)
+## Four macOS traps (read before changing bindings)
 
 1. **F21–F24 do not exist on macOS.** The virtual keycode table ends at
    F20; the OS silently drops those HID usages. Your effective bare-key
@@ -193,7 +193,18 @@ also explains the macOS traps below, learned the hard way.
    every diagnostic still looks healthy — enabled `true`, Accessibility
    granted, all hotkeys bound — and M2/M3 quietly revert to adjusting
    brightness. A watchdog that *checks* `isEnabled()` therefore never
-   fires; `healthTick` re-arms unconditionally every 30s instead.
+   fires; `q11Health` re-arms unconditionally every 30s instead.
+4. **A USB device behind a Thunderbolt dock is invisible to
+   `hs.usb.watcher`.** It delivered not one event for the 2.4G receiver
+   across a full unplug and replug — no error in the console, and the
+   callback's field name was right (`hs.usb.attachedDevices()` reports
+   the same `vendorID` the callback tested). A dock hangs its ports off a
+   different USB controller than a root port, and the IOKit notifications
+   Hammerspoon subscribes to do not reach that far. Poll
+   `hs.usb.attachedDevices()` instead: the polling-rate menubar checks
+   presence on the same 30s tick as trap 3's re-arm, and only shells out
+   when presence actually flips. Costs at-most-30s latency, which beats a
+   mechanism that is silent.
 
 ## Troubleshooting
 
