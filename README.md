@@ -234,6 +234,20 @@ always passes and hides the bug:
 ssh -O check -o "ControlPath=/tmp/keychron-q11-%r@%n" <host>
 ```
 
+`q11Health` now rebuilds the master every 30s, so this should no longer
+bite: a dead master costs 30s of staleness instead of every terminal
+keypress until something happens to warm it. Before that, the failure was
+silent and looked exactly like broken hardware — the encoder still moved
+Spaces, the M-keys still focused the terminal, and only the herdr half did
+nothing. Measured on this link, a cold call took **6.9s against a 3s
+`HERDR_TIMEOUT`**, so the press was killed and fell through to the local
+fallback every single time. If terminal presses go dead again, check the
+master first (above) and confirm the warm task is not wedged:
+
+```bash
+hs -c 'return tostring(q11SshWarm and q11SshWarm:isRunning())'
+```
+
 Three settings make that hold, all in `SSH_OPTS`: `ControlPersist=yes`
 (a finite value lapses during any normal pause, and the next press pays a
 cold handshake), `ControlPath=…%n` (`%n` is the name as typed — `%h` is

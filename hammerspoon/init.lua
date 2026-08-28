@@ -549,6 +549,7 @@ function hs.shutdownCallback()
   if q11Watcher then q11Watcher:stop() end
   if q11AppWatcher then q11AppWatcher:stop() end
   if q11Health then q11Health:stop() end
+  if q11SshWarm and q11SshWarm:isRunning() then q11SshWarm:terminate() end
   if q11PollTimer then q11PollTimer:stop() end
   if q11PollBar then q11PollBar:delete() end
 end
@@ -570,6 +571,23 @@ q11Health = hs.timer.doEvery(30, function()
   if present ~= q11ReceiverSeen then
     q11ReceiverSeen = present
     hs.timer.doAfter(present and 1.5 or 0, q11PollRefresh)
+  end
+  -- Keep the ssh master alive. ControlPersist=yes holds a *live* master
+  -- indefinitely but resurrects nothing once one dies, and
+  -- ServerAliveInterval=2/CountMax=2 tears it down after four seconds of stall
+  -- — a laptop sleep or a Tailscale re-route does that easily. Nothing then
+  -- rebuilds it until a keypress tries to, and cold measured 6.9s here against
+  -- a 3s HERDR_TIMEOUT, so that press is guaranteed to be killed and fall
+  -- through to the local fallback. Every M-key and left-encoder press in the
+  -- terminal is dead until something warms the master, which is exactly the
+  -- "works again after a while" that sent us hunting the keyboard twice.
+  -- Rebuilding here costs a blip 30s of staleness instead of a keypress.
+  if REMOTE and not (q11SshWarm and q11SshWarm:isRunning()) then
+    local warm = table.move(SSH_OPTS, 1, #SSH_OPTS, 1, { })
+    warm[#warm + 1] = REMOTE
+    warm[#warm + 1] = "true" -- cheapest possible remote command
+    q11SshWarm = hs.task.new("/usr/bin/ssh", nil, warm)
+    q11SshWarm:start()
   end
 end)
 
