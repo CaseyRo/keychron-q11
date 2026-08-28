@@ -16,6 +16,9 @@ That split is the first thing to check when something feels broken: only
 the terminal path leaves the machine, so if the encoder works everywhere
 *except* in the terminal, suspect ssh rather than the keyboard.
 
+Install steps and the reasoning behind the design are in
+[docs/wiki/quickstart.md](docs/wiki/quickstart.md).
+
 ## What you get
 
 | Control | Context | Action |

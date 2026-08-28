@@ -1,0 +1,17 @@
+{
+  "name": "keychron-q11",
+  "mode": "codebase",
+  "link_style": "markdown",
+  "output": "docs/wiki",
+  "sources": [
+    {
+      "path": ".",
+      "exclude": ["docs/wiki/**", ".git/**", ".claude/**", "openspec/**", "*.plist"]
+    }
+  ],
+  "knowledge_files": ["README.md", "docs/*.md"],
+  "code_extensions": [".lua", ".py", ".js", ".sh"],
+  "service_discovery": "manual",
+  "deep_scan": false,
+  "topic_hints": ["architecture"]
+}
