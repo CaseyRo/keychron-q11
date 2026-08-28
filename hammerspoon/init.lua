@@ -227,17 +227,21 @@ q11PollRefresh()
 -- this value changes about never.
 q11PollTimer = hs.timer.doEvery(600, q11PollRefresh)
 
--- The receiver gets unplugged often on this machine, and the timer alone would
--- leave the title wrong for most of every reconnect. Watch the dongle itself:
--- gone means "?", back means re-read. The timer stays as the backstop for rate
--- changes made in the Launcher, which no USB event announces.
+-- The receiver gets unplugged often on this machine, and the ten-minute timer
+-- alone would leave the title wrong for most of every reconnect. Presence is
+-- polled on the health tick below rather than watched: hs.usb.watcher never
+-- delivered a single event for this dongle, which lives in a Thunderbolt dock
+-- and so hangs off a different USB controller than a root-port device. A table
+-- scan every 30s is duller than debugging IOKit notification delivery, and it
+-- does not care where the dongle is plugged in.
 local RECEIVER_VID = 0x3434 -- Keychron; the dongle is 0xd028, the board 0x12b2
-q11UsbWatcher = hs.usb.watcher.new(function(e)
-  if e.vendorID ~= RECEIVER_VID then return end
-  -- On plug-in the USB device shows up before its HID interfaces do, so asking
-  -- immediately just reads "?" and needs the timer to correct it anyway.
-  hs.timer.doAfter(e.eventType == "added" and 1.5 or 0, q11PollRefresh)
-end):start()
+local function receiverPresent()
+  for _, d in ipairs(hs.usb.attachedDevices() or {}) do
+    if d.vendorID == RECEIVER_VID then return true end
+  end
+  return false
+end
+q11ReceiverSeen = receiverPresent()
 
 -- ── trackpad gestures ───────────────────────────────────────────────────
 -- Replaces the BetterTouchTool preset this machine used to run. macOS's own
@@ -546,7 +550,6 @@ function hs.shutdownCallback()
   if q11AppWatcher then q11AppWatcher:stop() end
   if q11Health then q11Health:stop() end
   if q11PollTimer then q11PollTimer:stop() end
-  if q11UsbWatcher then q11UsbWatcher:stop() end
   if q11PollBar then q11PollBar:delete() end
 end
 
@@ -559,6 +562,14 @@ q11Health = hs.timer.doEvery(30, function()
     -- a re-arm mid-swipe would leave the next event mis-anchored
     if q11SwipeTimer then q11SwipeTimer:stop() end
     q11Swipe, q11SwipeTimer = nil, nil
+  end
+  -- Only spawns uv when presence actually flips, so the steady state costs a
+  -- table scan. The HID interfaces trail the USB device on plug-in, hence the
+  -- delay before asking the keyboard anything.
+  local present = receiverPresent()
+  if present ~= q11ReceiverSeen then
+    q11ReceiverSeen = present
+    hs.timer.doAfter(present and 1.5 or 0, q11PollRefresh)
   end
 end)
 
