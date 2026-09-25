@@ -278,7 +278,11 @@ Everything is a constant near the top of a small file:
 
 - `hammerspoon/init.lua` — terminal apps, herdr host (or `nil`), Spotify
   volume step, `HERDR_TIMEOUT` (ceiling on one remote call before it
-  falls back to a local keystroke)
+  falls back to a local keystroke), and `MUTE_APPS`: bundle IDs of apps
+  that own the trackpad (games), for which the gesture layer stands down
+  while frontmost. Ships with Factorio and Steam; find an app's ID with
+  `osascript -e 'id of app "Name"'` — a game launched through Steam needs
+  its own entry
 - `backlight/keylight.py` — which house modes go dark, clock fallback hours,
   fallback effect
 
