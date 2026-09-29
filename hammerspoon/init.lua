@@ -70,16 +70,34 @@ end
 -- One multiplexed connection carries every press: ~85ms warm vs ~2.6s cold.
 -- %n not %h (Tailscale re-addresses and orphans the master); ControlPersist=yes
 -- not a finite value (idle expiry put the cold path back on the next keypress);
--- ServerAlive* because ConnectTimeout bounds only the TCP connect.
+-- ServerAlive* because ConnectTimeout bounds only the TCP connect — but those
+-- keepalives stay deliberately slack. At 2s/2, any four-second stall on the
+-- Tailscale link tore down a *healthy* master, and the next terminal press paid
+-- the ~2.6s cold rebuild against a 3s HERDR_TIMEOUT: read by hand as "the
+-- keyboard is dead again". They bound nothing a press depends on — the
+-- HERDR_TIMEOUT timer in herdr() already kills a stalled call at 3s — so they
+-- only have to outlive an ordinary hiccup while still noticing a genuinely dead
+-- host before the next 30s warm tick.
 local SSH_OPTS = {
   "-o", "BatchMode=yes",
   "-o", "ConnectTimeout=2",
   "-o", "ControlMaster=auto",
   "-o", "ControlPath=/tmp/keychron-q11-%r@%n",
   "-o", "ControlPersist=yes",
-  "-o", "ServerAliveInterval=2",
-  "-o", "ServerAliveCountMax=2",
+  "-o", "ServerAliveInterval=10",
+  "-o", "ServerAliveCountMax=3",
 }
+
+-- Failed warms land here, newest last; read it with
+-- `hs -c 'return q11SshReport()'` the moment terminal keys feel slow. A warm
+-- test run afterwards always passes and hides the bug, so this is the only
+-- record of the failures nobody was watching. A ring buffer, not print(), for
+-- the reason spelled out above q11SwipeReport.
+q11SshLog = {}
+function q11SshReport()
+  return #q11SshLog == 0 and "no failed ssh warms recorded"
+    or table.concat(q11SshLog, "\n")
+end
 
 -- Run the herdr helper on cc1; on failure fall back to a plain keystroke.
 local function herdr(args, fallback)
@@ -586,7 +604,14 @@ q11Health = hs.timer.doEvery(30, function()
     local warm = table.move(SSH_OPTS, 1, #SSH_OPTS, 1, { })
     warm[#warm + 1] = REMOTE
     warm[#warm + 1] = "true" -- cheapest possible remote command
-    q11SshWarm = hs.task.new("/usr/bin/ssh", nil, warm)
+    -- A nil callback here swallowed every failed warm, so a master that stayed
+    -- dead read as broken hardware twice over. Record it instead.
+    q11SshWarm = hs.task.new("/usr/bin/ssh", function(code, _, err)
+      if code == 0 then return end
+      q11SshLog[#q11SshLog + 1] = os.date("%H:%M:%S ") .. "warm exit=" .. code
+        .. " " .. ((err or ""):gsub("%s+$", ""))
+      if #q11SshLog > 20 then table.remove(q11SshLog, 1) end
+    end, warm)
     q11SshWarm:start()
   end
 end)

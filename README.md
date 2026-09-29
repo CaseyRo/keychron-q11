@@ -244,20 +244,27 @@ silent and looked exactly like broken hardware — the encoder still moved
 Spaces, the M-keys still focused the terminal, and only the herdr half did
 nothing. Measured on this link, a cold call took **6.9s against a 3s
 `HERDR_TIMEOUT`**, so the press was killed and fell through to the local
-fallback every single time. If terminal presses go dead again, check the
-master first (above) and confirm the warm task is not wedged:
+fallback every single time. If terminal presses go dead again, read the
+warm log — failed warms are the evidence a later check can no longer show:
 
 ```bash
-hs -c 'return tostring(q11SshWarm and q11SshWarm:isRunning())'
+hs -c 'return q11SshReport()'                                  # failed warms
+hs -c 'return tostring(q11SshWarm and q11SshWarm:isRunning())' # wedged?
 ```
 
-Three settings make that hold, all in `SSH_OPTS`: `ControlPersist=yes`
+Four settings make that hold, all in `SSH_OPTS`: `ControlPersist=yes`
 (a finite value lapses during any normal pause, and the next press pays a
 cold handshake), `ControlPath=…%n` (`%n` is the name as typed — `%h` is
 the *resolved* address, which Tailscale changes on a direct↔DERP switch,
 silently orphaning the master), and `ServerAliveInterval`/`CountMax`
 (`ConnectTimeout` bounds only the TCP connect, so a reachable-but-slow
-host hangs straight past it).
+host hangs straight past it) — the last two held **slack, at 10s/3**.
+They were 2s/2, which tore the master down after four seconds of stall:
+easy for a Tailscale reroute or a loaded remote, and every teardown put
+the next terminal press on the ~2.6s cold path. They bound nothing a press
+depends on, because `herdr()` already kills a stalled call at
+`HERDR_TIMEOUT`; they only have to outlive a hiccup and still notice a
+genuinely dead host before the next 30s warm tick.
 
 **Nothing responds and you want to know why.** The config opens an
 `hs.ipc` port, so you can interrogate the live router:
