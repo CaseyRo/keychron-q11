@@ -24,7 +24,7 @@ Install steps and the reasoning behind the design are in
 | Control | Context | Action |
 | --- | --- | --- |
 | M1–M5 | anywhere | jump to terminal workspace 1–5 |
-| left knob | terminal | walk splits, then cycle workspaces |
+| left knob | terminal | cycle herdr workspaces (wraps) |
 | left knob | elsewhere | macOS Spaces left/right |
 | left knob press | terminal / elsewhere | zoom split / Mission Control |
 | right knob (base) | anywhere | ↑ / ↓ / Enter — drive TUI menus (Claude Code, fzf, …) |

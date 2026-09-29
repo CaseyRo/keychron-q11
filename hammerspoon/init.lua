@@ -150,13 +150,14 @@ q11MTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(e)
 end)
 q11MTap:start() -- global on purpose: locals get GC'd and the tap dies
 
--- Left encoder rotate (F18 = ccw, F19 = cw): in the terminal walk herdr
--- splits, falling through to workspace cycling at the edge (M-keys own
--- direct jumps); elsewhere move through macOS Spaces.
+-- Left encoder rotate (F18 = ccw, F19 = cw): in the terminal cycle herdr
+-- workspaces with wraparound (M-keys own direct jumps); elsewhere move through
+-- macOS Spaces. Workspaces, not splits: walking splits stopped on every agent
+-- pane before it ever reached the next workspace.
 local function leftEncoder(dir, spaceKey, tabKey)
   return function()
     if terminalFrontmost() then
-      herdr({ "cycle", dir }, function()
+      herdr({ dir }, function()
         hs.eventtap.keyStroke({ "cmd", "shift" }, tabKey)
       end)
     else
