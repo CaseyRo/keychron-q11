@@ -310,9 +310,6 @@ local function showStages()
 end
 
 local GESTURES = {
-  -- three bare: what the BTT preset had on these exact swipes for years
-  { fingers = 3, dir = "up",    cmd = false, action = function() rcmd("expose") end },
-  { fingers = 3, dir = "down",  cmd = false, action = hs.spaces.toggleShowDesktop },
   -- cmd + four: window placement. `place` takes halves, corners, thirds and
   -- quarters too — see `rcmd help window place` before adding more.
   { fingers = 4, dir = "left",  cmd = true, action = function() rcmd("window", "place", "left-half") end },

@@ -30,8 +30,6 @@ Install steps and the reasoning behind the design are in
 | right knob (base) | anywhere | ↑ / ↓ / Enter — drive TUI menus (Claude Code, fzf, …) |
 | right knob (scroll layer) | anywhere | scroll under pointer; press = jump to bottom |
 | right knob (Spotify layer) | anywhere | Spotify app volume / play-pause — independent of system volume |
-| 3-finger swipe up | anywhere | cross-Space window Exposé (`rcmd expose`) |
-| 3-finger swipe down | anywhere | show desktop |
 | 4-finger tap | anywhere | pick a stage from a list of all of them |
 | ⌘ + 4-finger swipe ←/→ | anywhere | place window left / right half |
 | ⌘ + 4-finger swipe ↑/↓ | anywhere | maximize / centre window |
@@ -45,8 +43,7 @@ keystrokes** — set `REMOTE = nil` in `hammerspoon/init.lua`.
 
 ## Trackpad gestures
 
-The two swipes replace a BetterTouchTool preset, so BTT is no longer
-needed for them. They are one row each in the `GESTURES` table in
+These replace a BetterTouchTool preset, so BTT is no longer needed. They are one row each in the `GESTURES` table in
 `hammerspoon/init.lua` — add a direction or change the finger count
 there.
 
@@ -55,12 +52,11 @@ four-finger swipe is switched off on this machine
 (`TrackpadThreeFingerVertSwipeGesture = 0`), so nothing competes for the
 bare swipe. A row's `cmd` field picks which one you want.
 
-The layout keeps three fingers for *looking* at windows and four for
-*moving* them:
+Three fingers are deliberately left unbound (the old Exposé / show
+desktop swipes fired by accident too often); four fingers do the rest:
 
 | Fingers | Modifier | Territory |
 | --- | --- | --- |
-| 3 | none | Exposé / show desktop — the swipes BTT had here |
 | 4, tapped | none | pick a stage |
 | 4 | ⌘ | window placement (`rcmd window place`) |
 
