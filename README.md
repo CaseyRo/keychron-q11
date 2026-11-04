@@ -23,8 +23,8 @@ Install steps and the reasoning behind the design are in
 
 | Control | Context | Action |
 | --- | --- | --- |
-| M1–M5 | anywhere | jump to terminal workspace 1–5 |
-| left knob | terminal | cycle herdr workspaces (wraps) |
+| M1–M5 | anywhere | jump to Herdr space 1–5 (herdr TUI workspace when only Warp runs) |
+| left knob | terminal | cycle Herdr spaces / herdr workspaces (wraps) |
 | left knob | elsewhere | macOS Spaces left/right |
 | left knob press | terminal / elsewhere | zoom split / Mission Control |
 | right knob (base) | anywhere | ↑ / ↓ / Enter — drive TUI menus (Claude Code, fzf, …) |
@@ -34,6 +34,8 @@ Install steps and the reasoning behind the design are in
 | ⌘ + 4-finger swipe ←/→ | anywhere | place window left / right half |
 | ⌘ + 4-finger swipe ↑/↓ | anywhere | maximize / centre window |
 | backlight | house mode `day`/`away` | off; restored on every other mode (launchd, 10 min poll) |
+| Herdr theme | house mode `day`/`away` · `evening` · `night` | light · medium · dark Cobalt×CDiT; other modes follow macOS (`bin/herdr-daylight`, 5 min + wake) |
+| mouse select in Herdr | Herdr | copies the selection, like Warp |
 | `⌁` menubar | anywhere | show / switch the 2.4G polling rate, 125–8000 Hz |
 
 Workspace navigation speaks to **herdr** (a terminal workspace manager)

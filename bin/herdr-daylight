@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Pick the Herdr desktop theme from the HA house mode, reusing keylight.py's
+# HA_URL and keychain token. Hammerspoon runs this on a timer and on wake.
+#   day / away        → light  (cobalt-cdit-day)
+#   evening           → medium (cobalt-cdit-dusk)
+#   night             → dark   (cobalt-cdit-night)
+#   morning / guest / HA unreachable → macOS appearance decides (day ↔ dusk)
+# HERDR_MODE=<mode> overrides HA, for testing.
+set -euo pipefail
+export PATH=$HOME/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH  # hs.task gets no PATH
+
+SETTINGS=${HERDR_SETTINGS:-$HOME/.config/herdr-app/settings.json}
+CONF=$HOME/.config/keychron-q11.env
+
+mode=${HERDR_MODE-}
+if [ -z "${HERDR_MODE+x}" ] && [ -f "$CONF" ]; then
+  url=$(sed -n 's/^HA_URL=//p' "$CONF" | tr -d "\"'")
+  if token=$(security find-generic-password -s keychron-q11-ha -w 2>/dev/null); then
+    mode=$(curl -fsS -m 5 -H "Authorization: Bearer $token" \
+      "$url/api/states/input_select.house_mode" | jq -r .state) || mode=""
+  fi
+fi
+
+case "$mode" in
+  day|away) appearance=light dark=dusk ;;
+  evening)  appearance=dark  dark=dusk ;;
+  night)    appearance=dark  dark=night ;;
+  *)        appearance=""    dark=dusk ;;
+esac
+
+# The look is the layout's theme pick (layouts/.state/<layout>.json), which
+# beats settings.json, so set it the way the theme menu does: app.theme fills
+# the half matching the theme's lightness. settings.json keeps only appearance.
+want="cobalt-cdit-day cobalt-cdit-$dark"
+have=$(jq -r '"\(.theme.light) \(.theme.dark)"' "$HOME/.config/herdr-app/layouts/.state/main.json" 2>/dev/null || true)
+if [ "$have" != "$want" ]; then
+  for t in $want; do herdr-app do app.theme --name "$t" >/dev/null || true; done
+fi
+
+new=$(jq --arg a "$appearance" 'del(.theme)
+  | if $a == "" then del(.appearance) else .appearance = $a end' "$SETTINGS")
+# Herdr reloads settings.json on every write, so only write on a change.
+if [ "$new" != "$(jq . "$SETTINGS")" ]; then
+  printf '%s\n' "$new" >"$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
+fi
+echo "house mode ${mode:-(none)} -> appearance ${appearance:-system}, dark half cobalt-cdit-$dark"

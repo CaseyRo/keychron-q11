@@ -15,7 +15,11 @@ require("hs.ipc") -- `hs -c "..."` introspection; first, so a later throw is dia
 local REMOTE = "cc1"
 local REMOTE_HELPER = "dev/keychron-q11/bin/q11-herdr"
 -- Terminals to treat as "the cockpit", in preference order.
-local TERMINALS = { "dev.warp.Warp-Stable", "com.googlecode.iterm2" }
+local HERDR_APP_ID = "dev.herdr.app"
+local TERMINALS = { HERDR_APP_ID, "dev.warp.Warp-Stable", "com.googlecode.iterm2" }
+-- Herdr desktop's CLI. When the app runs, herdr verbs go here — local, no ssh;
+-- the app reaches cc1's spaces itself.
+local HERDR_APP = os.getenv("HOME") .. "/.local/bin/herdr-app"
 -- This repo, and uv, for the polling-rate menubar: it shells out to
 -- keylight.py because Lua has no hidapi. Absolute, because hs.task gets no
 -- PATH. Spelled out rather than derived from hs.configdir: install.sh symlinks
@@ -100,7 +104,22 @@ function q11SshReport()
 end
 
 -- Run the herdr helper on cc1; on failure fall back to a plain keystroke.
+-- q11-herdr's verbs, spelled as Herdr desktop commands.
+local function appArgs(args)
+  local verb = args[1]
+  if verb == "focus" then return { "do", "space.select", "--index", args[2] } end
+  local cmd = ({ next = "space.next", prev = "space.prev", zoom = "pane.zoom" })[verb]
+  return cmd and { "do", cmd }
+end
+
 local function herdr(args, fallback)
+  local app = hs.application.get(HERDR_APP_ID) and appArgs(args)
+  if app then
+    hs.task.new(HERDR_APP, function(exitCode)
+      if exitCode ~= 0 and fallback then fallback() end
+    end, app):start()
+    return
+  end
   if not REMOTE then
     if fallback then fallback() end
     return
@@ -572,8 +591,41 @@ end
 
 -- macOS silently disables event taps and isEnabled() keeps reporting true, so a
 -- watchdog that checks it never fires. Re-arm unconditionally; costs microseconds.
+-- ── Herdr desktop ───────────────────────────────────────────────────────
+-- Copy on select, as Warp does: a drag or a double/triple click released in
+-- Herdr copies the terminal's selection. terminal.copy rather than ⌘C, so
+-- nothing reaches the shell; with no selection it leaves the clipboard alone.
+local mouse = hs.eventtap.event.types
+q11DragSeen = false
+q11CopyTap = hs.eventtap.new({ mouse.leftMouseDragged, mouse.leftMouseUp }, function(e)
+  if e:getType() == mouse.leftMouseDragged then
+    q11DragSeen = true
+    return false
+  end
+  local multi = e:getProperty(hs.eventtap.event.properties.mouseEventClickState) >= 2
+  local app = hs.application.frontmostApplication()
+  if (q11DragSeen or multi) and app and app:bundleID() == HERDR_APP_ID then
+    hs.task.new(HERDR_APP, nil, { "do", "terminal.copy" }):start()
+  end
+  q11DragSeen = false
+  return false
+end)
+q11CopyTap:start()
+
+-- Theme follows the HA house mode (bin/herdr-daylight has the mapping). Every
+-- 5 min, plus on wake so opening the lid at night isn't a flash of daylight.
+local function herdrDaylight()
+  hs.task.new(REPO .. "/bin/herdr-daylight", nil, {}):start()
+end
+q11DaylightTimer = hs.timer.doEvery(300, herdrDaylight)
+q11DaylightWake = hs.caffeinate.watcher.new(function(event)
+  if event == hs.caffeinate.watcher.systemDidWake then herdrDaylight() end
+end):start()
+herdrDaylight()
+
 q11Health = hs.timer.doEvery(30, function()
   if q11MTap then q11MTap:stop():start() end
+  if q11CopyTap then q11CopyTap:stop():start() end
   if q11GestureTap then
     q11GestureTap:stop():start()
     -- a re-arm mid-swipe would leave the next event mis-anchored
