@@ -32,7 +32,8 @@ esac
 # beats settings.json, so set it the way the theme menu does: app.theme fills
 # the half matching the theme's lightness. settings.json keeps only appearance.
 want="cobalt-cdit-day cobalt-cdit-$dark"
-have=$(jq -r '"\(.theme.light) \(.theme.dark)"' "$HOME/.config/herdr-app/layouts/.state/main.json" 2>/dev/null || true)
+layout=$(herdr-app status 2>/dev/null | jq -r '.layout // "main"' || echo main)
+have=$(jq -r '"\(.theme.light) \(.theme.dark)"' "$HOME/.config/herdr-app/layouts/.state/$layout.json" 2>/dev/null || true)
 if [ "$have" != "$want" ]; then
   for t in $want; do herdr-app do app.theme --name "$t" >/dev/null || true; done
 fi
@@ -43,4 +44,15 @@ new=$(jq --arg a "$appearance" 'del(.theme)
 if [ "$new" != "$(jq . "$SETTINGS")" ]; then
   printf '%s\n' "$new" >"$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
 fi
-echo "house mode ${mode:-(none)} -> appearance ${appearance:-system}, dark half cobalt-cdit-$dark"
+# Claude Code draws its own colours, and Herdr doesn't answer the background
+# query its "auto" theme relies on, so set it outright. The -ansi themes take the
+# terminal's (audited) palette; Claude Code reads this when a session starts.
+dark_now=$appearance
+[ -n "$dark_now" ] || dark_now=$(defaults read -g AppleInterfaceStyle 2>/dev/null | grep -qi dark && echo dark || echo light)
+cc_theme=$([ "$dark_now" = dark ] && echo dark-ansi || echo light-ansi)
+CLAUDE_JSON=${CLAUDE_JSON:-$HOME/.claude.json}
+if [ -f "$CLAUDE_JSON" ] && [ "$(jq -r '.theme // ""' "$CLAUDE_JSON")" != "$cc_theme" ]; then
+  jq --arg t "$cc_theme" '.theme = $t' "$CLAUDE_JSON" >"$CLAUDE_JSON.tmp" && mv "$CLAUDE_JSON.tmp" "$CLAUDE_JSON"
+fi
+
+echo "house mode ${mode:-(none)} -> appearance ${appearance:-system}, dark half cobalt-cdit-$dark, claude $cc_theme"
