@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Pick the Herdr desktop theme from the HA house mode, reusing keylight.py's
 # HA_URL and keychain token. Hammerspoon runs this on a timer and on wake.
-#   day / away        → light  (cobalt-cdit-day)
+#   day               → light  (cobalt-cdit-day)
 #   evening           → medium (cobalt-cdit-dusk)
 #   night             → dark   (cobalt-cdit-night)
-#   morning / guest / HA unreachable → macOS appearance decides (day ↔ dusk)
+#   morning / guest / away / HA unreachable → macOS appearance decides (day ↔ dusk);
+#     away included because the house goes away at 21–22h too, after dark
 # HERDR_MODE=<mode> overrides HA, for testing.
 set -euo pipefail
 export PATH=$HOME/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH  # hs.task gets no PATH
@@ -22,7 +23,7 @@ if [ -z "${HERDR_MODE+x}" ] && [ -f "$CONF" ]; then
 fi
 
 case "$mode" in
-  day|away) appearance=light dark=dusk ;;
+  day)      appearance=light dark=dusk ;;
   evening)  appearance=dark  dark=dusk ;;
   night)    appearance=dark  dark=night ;;
   *)        appearance=""    dark=dusk ;;
