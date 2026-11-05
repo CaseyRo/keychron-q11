@@ -8,7 +8,7 @@ shape.
 
 A keypress takes one of three routes:
 
-- **Local.** Spaces, Mission Control, Spotify, scrolling and trackpad
+- **Local.** Spaces, Mission Control, scrolling and trackpad
   gestures. Hammerspoon and nothing else.
 - **Remote.** Workspace and split navigation, carried to the herdr host over
   one multiplexed ssh connection.

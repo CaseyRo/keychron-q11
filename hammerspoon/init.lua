@@ -239,12 +239,12 @@ q11MTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(e)
 end)
 q11MTap:start() -- global on purpose: locals get GC'd and the tap dies
 
--- Left encoder rotate (F18 = ccw, F19 = cw): in the terminal walk the splits
+-- Encoder rotate (F18 = ccw, F19 = cw): in the terminal walk the splits
 -- with wraparound, on into the next space past the last split of this one;
 -- elsewhere move through macOS Spaces. Splits, because stopping on every pane
 -- is the point of the knob — the M-keys stay the direct jump to a space, so
 -- nothing is slower to reach than it was.
-local function leftEncoder(dir, spaceKey, tabKey)
+local function encoderTurn(dir, spaceKey, tabKey)
   return function()
     if terminalFrontmost() then
       herdr({ "cycle", dir }, function()
@@ -255,33 +255,36 @@ local function leftEncoder(dir, spaceKey, tabKey)
     end
   end
 end
-hs.hotkey.bind({}, "f18", leftEncoder("prev", "left", "["))
-hs.hotkey.bind({}, "f19", leftEncoder("next", "right", "]"))
+local turnPrev = encoderTurn("prev", "left", "[")
+local turnNext = encoderTurn("next", "right", "]")
 
--- Left encoder press (F20): zoom the focused split in the terminal,
+-- Encoder press (F20): zoom the focused split in the terminal,
 -- Mission Control everywhere else.
-hs.hotkey.bind({}, "f20", function()
+local function pressZoom()
   if terminalFrontmost() then
     herdr({ "zoom" }, hs.spaces.toggleMissionControl)
   else
     hs.spaces.toggleMissionControl()
   end
-end)
+end
 
--- Right encoder on the fn layer: Spotify, independent of system volume.
--- Base layer stays plain media volume (bound on the keyboard itself, never
--- reaches us). F21-F24 don't exist on macOS and F13-F20 are spent, so the fn
--- layer sends hyper-modified F18-F20.
+hs.hotkey.bind({}, "f18", turnPrev)
+hs.hotkey.bind({}, "f19", turnNext)
+hs.hotkey.bind({}, "f20", pressZoom)
+
+-- The right encoder, base layer: the same three signals as the left knob and
+-- the same actions, so either hand walks the splits. The knob ships as arrow
+-- keys (menus, shell history) and the codes below sat on an unbound third
+-- layer behind Spotify volume, so this waits on a Launcher flash; Casey took
+-- the trade knowing the knob then no longer drives a TUI menu — the arrow
+-- keys themselves still do. Nothing earned that third layer, so it stays free
+-- (openspec/ideas/killed.md).
+-- F21-F24 don't exist on macOS and F13-F20 are spent bare, so the knob sends
+-- hyper-modified F18-F20.
 local HYPER = { "cmd", "alt", "ctrl" }
-hs.hotkey.bind(HYPER, "f18", function()
-  hs.spotify.setVolume(math.min(100, hs.spotify.getVolume() + 3))
-end)
-hs.hotkey.bind(HYPER, "f19", function()
-  hs.spotify.setVolume(math.max(0, hs.spotify.getVolume() - 3))
-end)
-hs.hotkey.bind(HYPER, "f20", function()
-  hs.spotify.playpause()
-end)
+hs.hotkey.bind(HYPER, "f18", turnPrev)
+hs.hotkey.bind(HYPER, "f19", turnNext)
+hs.hotkey.bind(HYPER, "f20", pressZoom)
 
 -- Scroll up/down are pure keyboard (KC_WH_U/KC_WH_D). Jump-to-bottom has no
 -- wheel keycode, so it stays here.

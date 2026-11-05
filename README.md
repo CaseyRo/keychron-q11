@@ -7,7 +7,7 @@ the first published host-control protocol for Keychron's ZMK-based Ultra
 series ([docs/protocol.md](docs/protocol.md)).
 
 ```
-Q11 Ultra ──USB/2.4G──▶ Hammerspoon router ─┬─▶ Spaces / Spotify / scroll   local
+Q11 Ultra ──USB/2.4G──▶ Hammerspoon router ─┬─▶ Spaces / splits / scroll    local
                                             └─▶ ssh ─▶ herdr host    terminal only
                         keylight.py (launchd) ──▶ backlight follows HA house mode
 ```
@@ -27,9 +27,9 @@ Install steps and the reasoning behind the design are in
 | left knob | terminal | walk Herdr splits, on into the next space past the last one (wraps) |
 | left knob | elsewhere | macOS Spaces left/right |
 | left knob press | terminal / elsewhere | zoom split / Mission Control |
-| right knob (base) | anywhere | ↑ / ↓ / Enter — drive TUI menus (Claude Code, fzf, …) |
+| right knob | terminal / elsewhere | the left knob with the other hand — splits / macOS Spaces (needs the [Launcher keymap](docs/launcher-keymap.md)) |
+| right knob press | terminal / elsewhere | zoom split / Mission Control |
 | right knob (scroll layer) | anywhere | scroll under pointer; press = jump to bottom |
-| right knob (Spotify layer) | anywhere | Spotify app volume / play-pause — independent of system volume |
 | 4-finger tap | anywhere | pick a stage from a list of all of them |
 | ⌘ + 4-finger swipe ←/→ | anywhere | place window left / right half |
 | ⌘ + 4-finger swipe ↑/↓ | anywhere | maximize / centre window |
@@ -281,8 +281,8 @@ model.
 
 Everything is a constant near the top of a small file:
 
-- `hammerspoon/init.lua` — terminal apps, herdr host (or `nil`), Spotify
-  volume step, `HERDR_TIMEOUT` (ceiling on one remote call before it
+- `hammerspoon/init.lua` — terminal apps, herdr host (or `nil`),
+  `HERDR_TIMEOUT` (ceiling on one remote call before it
   falls back to a local keystroke), and `MUTE_APPS`: bundle IDs of apps
   that own the trackpad (games), for which the gesture layer stands down
   while frontmost. Ships with Factorio and Steam; find an app's ID with

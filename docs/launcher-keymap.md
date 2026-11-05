@@ -36,9 +36,17 @@ they mean per context.
 | Left knob ccw    | `KC_F18` | terminal: prev split/workspace · else Space left    |
 | Left knob cw     | `KC_F19` | terminal: next split/workspace · else Space right   |
 | Left knob press  | `KC_F20` | terminal: zoom split · else Mission Control         |
-| Right knob ccw   | `KC_UP`  | pure keyboard — drive TUI menus                     |
-| Right knob cw    | `KC_DOWN`| pure keyboard                                       |
-| Right knob press | `KC_ENT` | pure keyboard — confirm                             |
+| Right knob ccw   | `LCAG(KC_F18)` | as left knob ccw — prev split                 |
+| Right knob cw    | `LCAG(KC_F19)` | as left knob cw — next split                  |
+| Right knob press | `LCAG(KC_F20)` | as left knob press — zoom split               |
+
+(`LCAG(...)` = Ctrl+Alt+Cmd; the nested form `C(A(G(KC_F18)))` is
+equivalent if your Launcher rejects `LCAG`. Swap ccw/cw to taste — the
+host side doesn't care which physical direction sends which code.)
+
+The right-knob rows are the host side's contract, not a read of the board:
+Hammerspoon listens for them today, and a knob that has not been flashed
+still sends its shipped arrow keys.
 
 ## Scroll layer (e.g. your fn layer) — right knob
 
@@ -55,17 +63,17 @@ for Launchers without wheel keycodes; it was removed as dead weight. If
 yours can't emit them, bind the F-keys and restore those two hotkeys from
 git history. Jump-to-bottom has no wheel keycode, so it stays host-side.
 
-## Spotify layer — right knob
+## The third layer — free
 
-| Physical control | Keycode          | Meaning              |
-| ---------------- | ---------------- | -------------------- |
-| Right knob ccw   | `LCAG(KC_F18)`   | Spotify volume up    |
-| Right knob cw    | `LCAG(KC_F19)`   | Spotify volume down  |
-| Right knob press | `LCAG(KC_F20)`   | Spotify play/pause   |
+The right knob once had a third layer for Spotify's own volume. The
+keyboard's media keys cover system volume and play/pause, nothing else
+earned the slot (`openspec/ideas/killed.md`), and the knob's base layer now
+carries the split walk, so there is no third layer to bind. Leave it out.
 
-(`LCAG(...)` = Ctrl+Alt+Cmd; the nested form `C(A(G(KC_F18)))` is
-equivalent if your Launcher rejects `LCAG`. Swap ccw/cw to taste — the
-host side doesn't care which physical direction sends which code.)
+The knob ships with `KC_UP` / `KC_DOWN` / `KC_ENT` on the base layer —
+arrow keys for driving a TUI menu, and shell history in a plain prompt. The
+rows above replace them, so a knob flashed to this keymap no longer drives a
+menu; the arrow keys themselves still do.
 
 ## Layer mechanics
 
