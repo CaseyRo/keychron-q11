@@ -38,6 +38,7 @@ hs -c 'q11PollRefresh()'                 # re-read the polling rate now
 ```bash
 uv run backlight/keylight.py selftest    # parsing, backlight, polling rules
 hs -c 'return q11SwipeSelfTest()'        # swipe, tap and scroll swallow
+hs -c 'return q11CycleSelfTest()'        # the encoder's split ring
 ```
 
 There is no build. These are the gate.

@@ -112,7 +112,77 @@ local function appArgs(args)
   return cmd and { "do", cmd }
 end
 
+-- Pure, so the ring is checkable without a window — see q11CycleSelfTest.
+-- Every pane the window lists as one ring: the splits of a space in order,
+-- then on into the next space, wrapping at the end. `ls` lists panes by their
+-- terminal, so a pane holding a mod is skipped.
+-- shortcut: no mod panes, add them here when one is worth stopping on.
+local function nextPane(list, focused, step)
+  local panes = {}
+  for _, space in ipairs(list.spaces or {}) do
+    for _, tab in ipairs(space.tabs or {}) do
+      for _, t in ipairs(tab.terminals or {}) do panes[#panes + 1] = t.pane end
+    end
+  end
+  local at = hs.fnutils.indexOf(panes, focused)
+  return at and panes[(at - 1 + step) % #panes + 1]
+end
+
+function q11CycleSelfTest()
+  local list = { spaces = {
+    { tabs = { { terminals = { { pane = "a" }, { pane = "b" } } } } },
+    { tabs = { { terminals = { { pane = "c" } } },
+               { terminals = { { pane = "d" } } } } },
+  } }
+  local cases = {
+    { "a", 1, "b" },    -- the next split of the same space
+    { "b", 1, "c" },    -- last split of a space: on into the next space
+    { "d", 1, "a" },    -- and around
+    { "a", -1, "d" },   -- backwards wraps too
+    { "c", -1, "b" },
+    { "gone", 1, nil }, -- a pane the window no longer lists
+  }
+  for _, c in ipairs(cases) do
+    local got = nextPane(list, c[1], c[2])
+    assert(got == c[3], ("nextPane(%s,%d)=%s want %s")
+      :format(c[1], c[2], tostring(got), tostring(c[3])))
+  end
+  assert(nextPane({ spaces = {} }, "a", 1) == nil, "empty window must not move")
+  return "selftest ok (split ring)"
+end
+
+-- Herdr desktop has no next-split verb, so the walk is three calls: the panes,
+-- the focused one, then focus its neighbour. ~8ms each, local, no ssh.
+local cycling = false
+local function appCycle(step, fallback)
+  if cycling then return end -- a spin advances one pane per completed walk
+  cycling = true
+  -- insurance only: every path below clears the flag, but a call that never
+  -- returns would otherwise leave the encoder dead with nothing to see.
+  hs.timer.doAfter(HERDR_TIMEOUT, function() cycling = false end)
+  local function stop(failed)
+    cycling = false
+    if failed and fallback then fallback() end
+  end
+  local function call(args, onJson)
+    hs.task.new(HERDR_APP, function(code, out)
+      local v = code == 0 and hs.json.decode(out or "")
+      if v then onJson(v) else stop(true) end
+    end, args):start()
+  end
+  call({ "ls" }, function(list)
+    call({ "status" }, function(st)
+      local target = nextPane(list, st.focused_pane, step)
+      if not target then return stop(true) end
+      call({ "do", "pane.focus", "--pane", target }, function() stop(false) end)
+    end)
+  end)
+end
+
 local function herdr(args, fallback)
+  if args[1] == "cycle" and hs.application.get(HERDR_APP_ID) then
+    return appCycle(args[2] == "prev" and -1 or 1, fallback)
+  end
   local app = hs.application.get(HERDR_APP_ID) and appArgs(args)
   if app then
     hs.task.new(HERDR_APP, function(exitCode)
@@ -169,14 +239,15 @@ q11MTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(e)
 end)
 q11MTap:start() -- global on purpose: locals get GC'd and the tap dies
 
--- Left encoder rotate (F18 = ccw, F19 = cw): in the terminal cycle herdr
--- workspaces with wraparound (M-keys own direct jumps); elsewhere move through
--- macOS Spaces. Workspaces, not splits: walking splits stopped on every agent
--- pane before it ever reached the next workspace.
+-- Left encoder rotate (F18 = ccw, F19 = cw): in the terminal walk the splits
+-- with wraparound, on into the next space past the last split of this one;
+-- elsewhere move through macOS Spaces. Splits, because stopping on every pane
+-- is the point of the knob — the M-keys stay the direct jump to a space, so
+-- nothing is slower to reach than it was.
 local function leftEncoder(dir, spaceKey, tabKey)
   return function()
     if terminalFrontmost() then
-      herdr({ dir }, function()
+      herdr({ "cycle", dir }, function()
         hs.eventtap.keyStroke({ "cmd", "shift" }, tabKey)
       end)
     else

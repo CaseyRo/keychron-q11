@@ -24,7 +24,7 @@ Install steps and the reasoning behind the design are in
 | Control | Context | Action |
 | --- | --- | --- |
 | M1–M5 | anywhere | jump to Herdr space 1–5 (herdr TUI workspace when only Warp runs) |
-| left knob | terminal | cycle Herdr spaces / herdr workspaces (wraps) |
+| left knob | terminal | walk Herdr splits, on into the next space past the last one (wraps) |
 | left knob | elsewhere | macOS Spaces left/right |
 | left knob press | terminal / elsewhere | zoom split / Mission Control |
 | right knob (base) | anywhere | ↑ / ↓ / Enter — drive TUI menus (Claude Code, fzf, …) |
