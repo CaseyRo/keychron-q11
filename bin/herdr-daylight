@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Pick the Herdr desktop theme from the HA house mode, reusing keylight.py's
 # HA_URL and keychain token. Hammerspoon runs this on a timer and on wake.
-#   day               → light: moss    (cobalt-cdit-day)
-#   evening / night   → dark:  Cobalt  (cobalt-cdit-evening)
-#   morning / guest / away / HA unreachable → macOS appearance decides;
+#   day               → drenched moss (cobalt-cdit-day)
+#   evening / night   → Cobalt        (cobalt-cdit-evening)
+#   morning / guest / away / HA unreachable → macOS appearance: light → moss, dark → Cobalt;
 #     away included because the house goes away at 21–22h too, after dark
+# Both themes are dark, so Herdr's appearance stays dark and this picks which
+# theme fills the dark slot.
 # HERDR_MODE=<mode> overrides HA, for testing.
 set -euo pipefail
 export PATH=$HOME/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH  # hs.task gets no PATH
@@ -22,19 +24,20 @@ if [ -z "${HERDR_MODE+x}" ] && [ -f "$CONF" ]; then
 fi
 
 case "$mode" in
-  day)           appearance=light ;;
-  evening|night) appearance=dark ;;
-  *)             appearance="" ;;
+  day)           look=day ;;
+  evening|night) look=evening ;;
+  *) look=$(defaults read -g AppleInterfaceStyle 2>/dev/null | grep -qi dark && echo evening || echo day) ;;
 esac
+appearance=dark
 
 # The look is the layout's theme pick (layouts/.state/<layout>.json), which
 # beats settings.json, so set it the way the theme menu does: app.theme fills
-# the half matching the theme's lightness. settings.json keeps only appearance.
-want="cobalt-cdit-day cobalt-cdit-evening"
+# the dark slot, both themes being dark. settings.json keeps only appearance.
+want="cobalt-cdit-$look"
 layout=$(herdr-app status 2>/dev/null | jq -r '.layout // "main"' || echo main)
-have=$(jq -r '"\(.theme.light) \(.theme.dark)"' "$HOME/.config/herdr-app/layouts/.state/$layout.json" 2>/dev/null || true)
+have=$(jq -r '.theme.dark' "$HOME/.config/herdr-app/layouts/.state/$layout.json" 2>/dev/null || true)
 if [ "$have" != "$want" ]; then
-  for t in $want; do herdr-app do app.theme --name "$t" >/dev/null || true; done
+  herdr-app "do" app.theme --name "$want" >/dev/null || true
 fi
 
 new=$(jq --arg a "$appearance" 'del(.theme)
@@ -44,14 +47,12 @@ if [ "$new" != "$(jq . "$SETTINGS")" ]; then
   printf '%s\n' "$new" >"$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
 fi
 # Claude Code draws its own colours, and Herdr doesn't answer the background
-# query its "auto" theme relies on, so set it outright. The -ansi themes take the
-# terminal's (audited) palette; Claude Code reads this when a session starts.
-dark_now=$appearance
-[ -n "$dark_now" ] || dark_now=$(defaults read -g AppleInterfaceStyle 2>/dev/null | grep -qi dark && echo dark || echo light)
-cc_theme=$([ "$dark_now" = dark ] && echo dark-ansi || echo light-ansi)
+# query its "auto" theme relies on, so set it outright: dark-ansi takes the
+# terminal's (audited) palette. Claude Code reads this when a session starts.
+cc_theme=dark-ansi
 CLAUDE_JSON=${CLAUDE_JSON:-$HOME/.claude.json}
 if [ -f "$CLAUDE_JSON" ] && [ "$(jq -r '.theme // ""' "$CLAUDE_JSON")" != "$cc_theme" ]; then
   jq --arg t "$cc_theme" '.theme = $t' "$CLAUDE_JSON" >"$CLAUDE_JSON.tmp" && mv "$CLAUDE_JSON.tmp" "$CLAUDE_JSON"
 fi
 
-echo "house mode ${mode:-(none)} -> appearance ${appearance:-system}, claude $cc_theme"
+echo "house mode ${mode:-(none)} -> $want, claude $cc_theme"
