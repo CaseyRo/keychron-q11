@@ -275,9 +275,10 @@ hs.hotkey.bind({}, "f20", pressZoom)
 -- The right encoder, base layer: the same three signals as the left knob and
 -- the same actions, so either hand walks the splits. The knob ships as arrow
 -- keys (menus, shell history) and the codes below sat on an unbound third
--- layer behind Spotify volume, so this waits on a Launcher flash; Casey took
--- the trade knowing the knob then no longer drives a TUI menu — the arrow
--- keys themselves still do. Nothing earned that third layer, so it stays free
+-- layer behind Spotify volume; flashed over on 2026-11-06, so a fresh board
+-- needs the Launcher step before this knob does anything. Casey took the
+-- trade knowing the knob no longer drives a TUI menu — the arrow keys
+-- themselves still do. Nothing earned that third layer, so it stays free
 -- (openspec/ideas/killed.md).
 -- F21-F24 don't exist on macOS and F13-F20 are spent bare, so the knob sends
 -- hyper-modified F18-F20.
