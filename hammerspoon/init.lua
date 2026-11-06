@@ -742,3 +742,9 @@ q11Health = hs.timer.doEvery(30, function()
 end)
 
 hs.alert.show("keychron-q11 armed")
+-- Storykeep's meeting watcher lives in casey-claude-setup, which no other
+-- host that runs this router has. Guarded so a missing repo costs a console
+-- line instead of the tail of this file.
+local ok, meetings = pcall(dofile, os.getenv("HOME") .. "/dev/casey-claude-setup/companion/companions/storykeep/orchestration/meetings.lua")
+storykeepMeetings = ok and meetings or nil -- global on purpose: it outlives this file
+if not ok then print("storykeep meetings not loaded: " .. tostring(meetings)) end
