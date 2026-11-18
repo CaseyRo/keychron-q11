@@ -57,9 +57,29 @@ every response echoes `a7 <sub>` and carries a status byte at index 2
 | Sub  | Exchange | Meaning |
 | ---- | -------- | ------- |
 | `05` | `a7 05 ff` → `a7 05 00 01 0a 32` | debounce: byte 4 = press-down ms (`0a`=10), byte 5 = reset ms (`32`=50) |
-| `0b` | `a7 0b` → `a7 0b 00 58 02 20 1c` | unidentified device/status block |
+| `0b` | `a7 0b` → `a7 0b 00 58 02 20 1c` | sleep timers, two little-endian seconds: idle `0258` = 600, sleep `1c20` = 7200 |
 | `0d` | `a7 0d` → `a7 0d 00 40 1f 7f W 00 40 1f 7f G 00 7d 00 40 40 01` | settings read-back; **W** = wired polling index, **G** = 2.4G polling index |
 | `0e` | `a7 0e <wired> <2.4G>` → `a7 0e 00 <2.4G>` | **set polling rate — both transports at once** |
+
+Keychron published the firmware side of this channel on 2026-05-23, in the
+`rtl8762g` branch of [Keychron/zmk](https://github.com/Keychron/zmk/tree/rtl8762g)
+(`app/src/launcher/launcher.c`, `kc_user_cmd`). The Q11 Ultra itself is not
+among the boards in that branch, but the captures above match it: `0e` takes
+the wired and 2.4G divisors positionally, as found here. It also names the
+rest, which says which subcommands write:
+
+| Sub | Name in source | Writes? |
+| --- | --- | --- |
+| `01` | protocol version | no |
+| `02` | DFU info | no |
+| `03` / `04` | keyboard language get / set | `04` writes |
+| `05` / `06` | debounce get / set | `06` writes |
+| `07`–`0a` | snap click info, get, set, save | `09`, `0a` write |
+| `0b` / `0c` | sleep time get / set | `0c` writes |
+| `0d` / `0e` | report rate get / set | `0e` writes |
+
+Read against that table before sending anything in `a7`: the writers are
+`04`, `06`, `09`, `0a`, `0c` and `0e`.
 
 Polling-rate index counts *down* from 8000 (index = log2(8000/Hz)):
 
