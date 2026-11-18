@@ -36,9 +36,9 @@ they mean per context.
 | Left knob ccw    | `KC_F18` | terminal: prev split/workspace · else Space left    |
 | Left knob cw     | `KC_F19` | terminal: next split/workspace · else Space right   |
 | Left knob press  | `KC_F20` | terminal: zoom split · else Mission Control         |
-| Right knob ccw   | `LCAG(KC_F18)` | as left knob ccw — prev split                 |
-| Right knob cw    | `LCAG(KC_F19)` | as left knob cw — next split                  |
-| Right knob press | `LCAG(KC_F20)` | as left knob press — zoom split               |
+| Right knob ccw   | `LCAG(KC_F18)` | office music: volume down                     |
+| Right knob cw    | `LCAG(KC_F19)` | office music: volume up                       |
+| Right knob press | `LCAG(KC_F20)` | office music: play/pause · double = 3 min break |
 
 (`LCAG(...)` = Ctrl+Alt+Cmd; the nested form `C(A(G(KC_F18)))` is
 equivalent if your Launcher rejects `LCAG`. Swap ccw/cw to taste — the
@@ -66,9 +66,10 @@ git history. Jump-to-bottom has no wheel keycode, so it stays host-side.
 ## The third layer — free
 
 The right knob once had a third layer for Spotify's own volume. The
-keyboard's media keys cover system volume and play/pause, nothing else
+keyboard's media keys cover the Mac's volume and play/pause, nothing else
 earned the slot (`openspec/ideas/killed.md`), and the knob's base layer now
-carries the split walk, so there is no third layer to bind. Leave it out.
+drives the office's music through Home Assistant, so there is no third layer
+to bind. Leave it out.
 
 The knob ships with `KC_UP` / `KC_DOWN` / `KC_ENT` on the base layer —
 arrow keys for driving a TUI menu, and shell history in a plain prompt. The

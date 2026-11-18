@@ -26,8 +26,6 @@ import subprocess
 import sys
 import urllib.request
 
-import hid
-
 VID = 0x3434  # Keychron (wired keyboard or Ultra-Link 8K receiver alike)
 USAGE_PAGE = 0xFF60  # VIA-style vendor collection
 
@@ -65,15 +63,20 @@ MODES_DARK_OFF = {"day", "away"}
 DAY_STARTS, DAY_ENDS = 8, 18
 
 
-def ha_url() -> str | None:
+def conf(key: str) -> str | None:
     try:
         for line in CONF.read_text().splitlines():
-            key, _, value = line.partition("=")
-            if key.strip() == "HA_URL":
-                return value.strip().strip("\"'").rstrip("/") or None
+            name, _, value = line.partition("=")
+            if name.strip() == key:
+                return value.strip().strip("\"'") or None
     except FileNotFoundError:
         pass
     return None
+
+
+def ha_url() -> str | None:
+    url = conf("HA_URL")
+    return url.rstrip("/") if url else None
 
 
 def ha_token() -> str | None:
@@ -141,6 +144,8 @@ def selftest() -> None:
 
 
 def open_device() -> "hid.device":
+    import hid  # here, so nowplaying.py can borrow the HA helpers without hidapi
+
     info = next(
         (d for d in hid.enumerate(VID) if d["usage_page"] == USAGE_PAGE), None
     )

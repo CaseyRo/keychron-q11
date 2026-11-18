@@ -44,6 +44,196 @@ local MUTE_APPS = {
 }
 -- ────────────────────────────────────────────────────────────────────────
 
+-- ── look ────────────────────────────────────────────────────────────────
+-- Everything this file draws is one thing: a bezel after Quicksilver's — a
+-- translucent rounded panel of large square panes, each a big picture over a
+-- centred label, with one line of detail underneath. Quicksilver's because the
+-- job is the same (pick a thing by looking at it, from the keyboard) and
+-- because a stage is best named by the apps in it, which is what the panes
+-- have room to show. Colours are Herdr's Cobalt×CDiT theme
+-- (~/.config/herdr-app/themes/cobalt-cdit-evening.json), copied, not read at
+-- load: a missing theme file must not take the picker down.
+-- shortcut: evening only, the day (moss) theme is not followed; read the
+-- active theme in herdrDaylight if the mismatch ever shows.
+-- A little see-through, as Quicksilver's was, but only a little: a canvas
+-- cannot blur what is behind it, and at 0.88 the page underneath read straight
+-- through the labels.
+local COBALT = { hex = "#122738", alpha = 0.93 }
+local YELLOW = { hex = "#ffc600" } -- the cursor colour, Cobalt's one loud note
+local FG     = { hex = "#e6edf3" }
+local MUTED  = { hex = "#abb1b8" }
+local PANE, GAP, PAD, FOOT, EDGE = 176, 10, 14, 32, 48 -- EDGE: room for the shadow
+
+q11Bezel, q11BezelKeys = nil, nil -- globals: a local canvas or modal is GC'd
+local function closeBezel(now)
+  if q11BezelKeys then q11BezelKeys:exit(); q11BezelKeys:delete(); q11BezelKeys = nil end
+  local c = q11Bezel
+  if not c then return end
+  q11Bezel = nil
+  if now then return c:delete() end
+  c:hide(0.45) -- the long fade out is half of what made Quicksilver's bezel feel soft
+  hs.timer.doAfter(0.5, function() c:delete() end)
+end
+
+-- panes: { { label, detail, key?, icons? = { hs.image… }, art? = fn(x, y, w)
+-- → elements, selected?, pick? = fn } … }. With `linger` it is a notice that
+-- leaves by itself; without, a picker: ←/→ or tab move, return or a click
+-- picks, a pane's own key picks it outright, escape leaves.
+local function bezel(panes, linger)
+  -- one notice replacing another swaps in place: a knob spin is a run of
+  -- notices, and a fade between each would flicker
+  local swap = linger and q11Bezel ~= nil
+  closeBezel(swap)
+  local w, h = PAD * 2 + #panes * PANE + (#panes - 1) * GAP, PAD + PANE + FOOT
+  local f = hs.screen.mainScreen():frame()
+  local c = hs.canvas.new({
+    x = f.x + (f.w - w) / 2 - EDGE, y = f.y + (f.h - h) * 0.4 - EDGE,
+    w = w + EDGE * 2, h = h + EDGE * 2,
+  })
+  q11Bezel = c
+  local sel = 1
+  for i, p in ipairs(panes) do if p.selected then sel = i end end
+
+  local function text(str, x, y, tw, size, color, font)
+    return { type = "text", text = str, textSize = size, textColor = color,
+      textFont = font or ".AppleSystemUIFont", textAlignment = "center",
+      textLineBreak = "truncateTail",
+      frame = { x = x, y = y, w = tw, h = size + 8 } }
+  end
+  local function draw()
+    local els = { {
+      type = "rectangle", action = "fill", fillColor = COBALT,
+      frame = { x = EDGE, y = EDGE, w = w, h = h },
+      roundedRectRadii = { xRadius = 22, yRadius = 22 },
+      withShadow = true,
+      shadow = { blurRadius = 28, color = { alpha = 0.45 }, offset = { h = -10, w = 0 } },
+    } }
+    for i, p in ipairs(panes) do
+      local x, y = EDGE + PAD + (i - 1) * (PANE + GAP), EDGE + PAD
+      els[#els + 1] = {
+        id = "pane" .. i, type = "rectangle", action = "fill", trackMouseDown = true,
+        fillColor = { white = 1, alpha = (i == sel and not linger) and 0.2 or 0.07 },
+        frame = { x = x, y = y, w = PANE, h = PANE },
+        roundedRectRadii = { xRadius = 14, yRadius = 14 },
+      }
+      -- up to three icons, fanned so each stays recognisable; one sits alone
+      local icons = p.icons or {}
+      local n = math.min(#icons, 3)
+      local size, step = n == 1 and 108 or 84, 38
+      local ix = x + (PANE - (size + (n - 1) * step)) / 2
+      for k = 1, n do
+        els[#els + 1] = { type = "image", image = icons[k],
+          frame = { x = ix + (k - 1) * step, y = y + 16 + (108 - size) / 2, w = size, h = size } }
+      end
+      for _, el in ipairs(p.art and p.art(x, y, PANE) or {}) do els[#els + 1] = el end
+      if p.key then
+        els[#els + 1] = text(p.key:upper(), x + 8, y + 6, 20, 12, YELLOW, ".AppleSystemUIFontBold")
+      end
+      els[#els + 1] = text(p.label, x + 8, y + PANE - 38, PANE - 16, 16, FG,
+        ".AppleSystemUIFontMedium")
+    end
+    local foot = panes[sel].detail
+    if foot then
+      els[#els + 1] = text(foot, EDGE + PAD, EDGE + PAD + PANE + 6, w - PAD * 2, 12, MUTED)
+    end
+    c:replaceElements(els)
+  end
+  draw()
+  c:level(hs.canvas.windowLevels.modalPanel)
+  c:behavior({ "canJoinAllSpaces", "transient" })
+  c:show(swap and 0 or 0.16)
+  if linger then
+    hs.timer.doAfter(linger, function() if q11Bezel == c then closeBezel() end end)
+    return
+  end
+
+  local function pick(i)
+    closeBezel()
+    if panes[i].pick then panes[i].pick() end
+  end
+  local function move(step)
+    return function() sel = (sel - 1 + step) % #panes + 1; draw() end
+  end
+  c:mouseCallback(function(_, _, id)
+    local i = tonumber(tostring(id):match("^pane(%d+)$"))
+    if i then pick(i) end
+  end)
+  local keys = hs.hotkey.modal.new()
+  q11BezelKeys = keys
+  keys:bind({}, "right", move(1), nil, move(1))
+  keys:bind({}, "tab", move(1))
+  keys:bind({}, "left", move(-1), nil, move(-1))
+  keys:bind({ "shift" }, "tab", move(-1))
+  keys:bind({}, "return", function() pick(sel) end)
+  keys:bind({}, "escape", closeBezel)
+  for i, p in ipairs(panes) do
+    if p.key then keys:bind({}, p.key, function() pick(i) end) end
+  end
+  keys:enter()
+end
+
+-- The old Mac volume bezel: a speaker over a row of sixteen blocks.
+local function volumeArt(level)
+  return function(x, y, w)
+    local cx, els = x + w / 2 - 8, {}
+    els[#els + 1] = { type = "segments", closed = true, action = "fill", fillColor = FG,
+      coordinates = {
+        { x = cx - 24, y = y + 44 }, { x = cx - 10, y = y + 44 }, { x = cx + 6, y = y + 30 },
+        { x = cx + 6, y = y + 82 }, { x = cx - 10, y = y + 68 }, { x = cx - 24, y = y + 68 },
+      } }
+    for i, r in ipairs({ 14, 26 }) do
+      els[#els + 1] = { type = "arc", action = "stroke", strokeWidth = 3.5,
+        strokeCapStyle = "round", arcRadii = false,
+        center = { x = cx + 8, y = y + 56 }, radius = r, startAngle = 50, endAngle = 130,
+        strokeColor = level * 2 >= i and FG or { white = 1, alpha = 0.2 } }
+    end
+    local bw, gap = 7, 2.6
+    local x0 = x + (w - (16 * bw + 15 * gap)) / 2
+    for i = 1, 16 do
+      els[#els + 1] = { type = "rectangle", action = "fill",
+        fillColor = i <= math.floor(level * 16 + 0.5) and FG or { white = 1, alpha = 0.18 },
+        frame = { x = x0 + (i - 1) * (bw + gap), y = y + 102, w = bw, h = 10 },
+        roundedRectRadii = { xRadius = 1.5, yRadius = 1.5 } }
+    end
+    return els
+  end
+end
+local function pauseArt(x, y, w)
+  local els = {}
+  for _, dx in ipairs({ -26, 6 }) do
+    els[#els + 1] = { type = "rectangle", action = "fill", fillColor = FG,
+      frame = { x = x + w / 2 + dx, y = y + 32, w = 20, h = 64 },
+      roundedRectRadii = { xRadius = 4, yRadius = 4 } }
+  end
+  return els
+end
+local function playArt(x, y, w)
+  local cx = x + w / 2
+  return { { type = "segments", closed = true, action = "fill", fillColor = FG,
+    coordinates = { { x = cx - 20, y = y + 30 }, { x = cx + 32, y = y + 64 }, { x = cx - 20, y = y + 98 } } } }
+end
+
+-- The board itself, drawn: two halves, a knob at each outer top corner. The
+-- one picture that says which keyboard armed.
+local function q11Art(x, y, w)
+  local els, cx, top = {}, x + w / 2, y + 44
+  for side = -1, 1, 2 do
+    local hx = cx + (side == -1 and -66 or 6)
+    els[#els + 1] = { type = "rectangle", action = "stroke", strokeColor = FG, strokeWidth = 2.5,
+      frame = { x = hx, y = top, w = 60, h = 44 }, roundedRectRadii = { xRadius = 7, yRadius = 7 } }
+    for row = 0, 1 do
+      for col = 0, 2 do
+        els[#els + 1] = { type = "rectangle", action = "fill", fillColor = FG,
+          frame = { x = hx + 9 + col * 15, y = top + 18 + row * 11, w = 11, h = 7 },
+          roundedRectRadii = { xRadius = 2, yRadius = 2 } }
+      end
+    end
+    els[#els + 1] = { type = "circle", action = "fill", fillColor = YELLOW, radius = 4.5,
+      center = { x = hx + (side == -1 and 13 or 47), y = top + 9 } }
+  end
+  return els
+end
+
 -- Muting is a flag the gesture callback reads, not a tap that gets stopped:
 -- q11Health re-arms the taps every 30s regardless, so a stopped one would come
 -- back by itself mid-game. Seeded from the current app so a reload while the
@@ -272,20 +462,146 @@ hs.hotkey.bind({}, "f18", turnPrev)
 hs.hotkey.bind({}, "f19", turnNext)
 hs.hotkey.bind({}, "f20", pressZoom)
 
--- The right encoder, base layer: the same three signals as the left knob and
--- the same actions, so either hand walks the splits. The knob ships as arrow
--- keys (menus, shell history) and the codes below sat on an unbound third
--- layer behind Spotify volume; flashed over on 2026-11-06, so a fresh board
--- needs the Launcher step before this knob does anything. Casey took the
--- trade knowing the knob no longer drives a TUI menu — the arrow keys
--- themselves still do. Nothing earned that third layer, so it stays free
--- (openspec/ideas/killed.md).
+-- The right encoder, base layer: the office's music, through Home Assistant.
+-- Turn = volume, press = play/pause, double press = a three minute break that
+-- ends by itself — the length of a radio commercial block. Pause or stop is
+-- the player's call, not this file's: Music Assistant decides what pausing a
+-- live stream means, so one media_play_pause serves radio and tracks alike.
+-- Which player gets the command is asked of HA each time rather than fixed
+-- here: the office has several (OFFICE_PLAYERS in the conf file), and the
+-- knob should turn the one that is playing. With none of them playing the
+-- turn goes to the amplifier — an Apple TV or a Spotify Connect session is
+-- still loud — and the press goes to whichever player was last heard.
+-- No local fallback, unlike the herdr path: an unreachable HA fails after a
+-- long timeout, and a spin's worth of volume steps landing a minute late is
+-- worse than a knob that does nothing. The keyboard's media keys cover the Mac.
 -- F21-F24 don't exist on macOS and F13-F20 are spent bare, so the knob sends
--- hyper-modified F18-F20.
+-- hyper-modified F18-F20 (flashed 2026-11-06, see docs/launcher-keymap.md).
+local DOUBLE_PRESS = 0.3 -- seconds a single press waits to see a second one
+local BREAK = 180        -- seconds
+local PLAYER_TTL = 5     -- seconds one answer serves, so a spin asks HA once
+
+-- Same sources as keylight.py: the conf file, and the token in the login
+-- keychain. Read once at load; a reload picks up a change. The entity IDs live
+-- in the conf file too because they describe a house, not this code, and
+-- nowplaying.py reads the same list. Without them the knob does nothing.
+local function conf(key)
+  local f = io.open(os.getenv("HOME") .. "/.config/keychron-q11.env")
+  local value = f and ("\n" .. f:read("a")):match("\n" .. key .. "=[\"']?([^\"'\n]+)")
+  if f then f:close() end
+  return value
+end
+local haUrl = (conf("HA_URL") or ""):gsub("/+$", "")
+local haToken = hs.execute("/usr/bin/security find-generic-password -s keychron-q11-ha -w")
+  :gsub("%s+$", "")
+local OFFICE_PLAYERS = hs.fnutils.split(conf("OFFICE_PLAYERS") or "", ",")
+local OFFICE_AMP = conf("OFFICE_AMP")
+
+local function haPost(path, body, done)
+  if haUrl == "" or haToken == "" or not OFFICE_AMP then return end
+  hs.http.asyncPost(haUrl .. path, hs.json.encode(body),
+    { Authorization = "Bearer " .. haToken, ["Content-Type"] = "application/json" },
+    function(status, text)
+      q11MusicStatus = status -- `hs -c 'return q11MusicStatus'`
+      if done and status == 200 then done(text) end
+    end)
+end
+
+-- The office player that is playing, or "" — HA filters the list, so this is
+-- one round trip however many players there are.
+local PLAYING = "{{ expand(" .. hs.json.encode(OFFICE_PLAYERS)
+  .. ") | selectattr('state','eq','playing') | map(attribute='entity_id') | first | default('') }}"
+q11MusicPlayer = OFFICE_PLAYERS[1] -- last one heard playing; global for `hs -c`
+local playing, askedAt = "", -math.huge
+local function withPlaying(fn)
+  local now = hs.timer.secondsSinceEpoch()
+  if now - askedAt < PLAYER_TTL then return fn(playing) end
+  haPost("/api/template", { template = PLAYING }, function(id)
+    playing, askedAt = id, now
+    if id ~= "" then q11MusicPlayer = id end
+    fn(id)
+  end)
+end
+
+local function media(service, entity, done)
+  haPost("/api/services/media_player/" .. service, { entity_id = entity }, done)
+end
+
+-- What a player is doing right now, for the bezel: its state, its level and
+-- "title — artist". Read back from HA rather than assumed, because the step
+-- size and what pause means for a stream are both the player's.
+local function playerNow(entity, fn)
+  hs.http.asyncGet(haUrl .. "/api/states/" .. entity,
+    { Authorization = "Bearer " .. haToken }, function(status, text)
+      local st = status == 200 and hs.json.decode(text) or {}
+      local a = st.attributes or {}
+      local title = a.media_title and (a.media_artist and a.media_artist ~= ""
+        and a.media_title .. " — " .. a.media_artist or a.media_title)
+      fn(st.state, a.volume_level, title or a.friendly_name)
+    end)
+end
+
+function q11Volume(service) -- global for `hs -c 'q11Volume("volume_up")'`
+  withPlaying(function(id)
+    local entity = id ~= "" and id or OFFICE_AMP
+    media(service, entity, function()
+      playerNow(entity, function(_, level, title)
+        if not level then return end
+        bezel({ { label = ("%d%%"):format(math.floor(level * 100 + 0.5)),
+          art = volumeArt(level), detail = title } }, 1.2)
+      end)
+    end)
+  end)
+end
+
+-- Globals so the press logic is drivable from `hs -c 'q11MusicPress()'`.
+-- shortcut: the break lives in this timer, so a router reload during one
+-- leaves the music paused; move it to an HA script if that ever bites.
+q11MusicBreak = nil
+local pressTimer
+local function endBreak()
+  if not q11MusicBreak then return false end
+  q11MusicBreak:stop()
+  q11MusicBreak = nil
+  media("media_play", q11MusicPlayer)
+  bezel({ { label = "Music on", art = playArt } }, 1.4)
+  return true
+end
+function q11MusicPress()
+  if pressTimer then -- second press inside the window: the break
+    pressTimer:stop()
+    pressTimer = nil
+    if q11MusicBreak then q11MusicBreak:stop() end
+    q11MusicBreak = hs.timer.doAfter(BREAK, endBreak)
+    askedAt = -math.huge -- a stale answer here would pause the wrong player
+    withPlaying(function() media("media_pause", q11MusicPlayer) end)
+    bezel({ { label = "Back in 3 min", art = pauseArt } }, 1.8)
+    return
+  end
+  pressTimer = hs.timer.doAfter(DOUBLE_PRESS, function()
+    pressTimer = nil
+    -- a single press during a break ends it early rather than toggling
+    if endBreak() then return end
+    askedAt = -math.huge
+    withPlaying(function()
+      media("media_play_pause", q11MusicPlayer, function()
+        -- a beat, so HA has the new state before it is read back
+        hs.timer.doAfter(0.6, function()
+          playerNow(q11MusicPlayer, function(state, _, title)
+            local on = state == "playing"
+            bezel({ { label = on and "Playing" or "Paused",
+              art = on and playArt or pauseArt, detail = title } }, 1.4)
+          end)
+        end)
+      end)
+    end)
+  end)
+end
+
 local HYPER = { "cmd", "alt", "ctrl" }
-hs.hotkey.bind(HYPER, "f18", turnPrev)
-hs.hotkey.bind(HYPER, "f19", turnNext)
-hs.hotkey.bind(HYPER, "f20", pressZoom)
+hs.hotkey.bind(HYPER, "f18", function() q11Volume("volume_down") end)
+hs.hotkey.bind(HYPER, "f19", function() q11Volume("volume_up") end)
+hs.hotkey.bind(HYPER, "f20", q11MusicPress)
 
 -- Scroll up/down are pure keyboard (KC_WH_U/KC_WH_D). Jump-to-bottom has no
 -- wheel keycode, so it stays here.
@@ -307,6 +623,15 @@ local function keylight(args, done)
 end
 
 q11PollBar = hs.menubar.new() -- global: a local would be GC'd and vanish
+-- A drawn bolt, not a Unicode glyph: as a template image the menu bar tints it
+-- itself, so it is right on a light bar, a dark one and when highlighted.
+q11PollBar:setIcon(hs.canvas.new({ x = 0, y = 0, w = 16, h = 16 }):appendElements({
+  type = "segments", closed = true, action = "fill", fillColor = { black = 1 },
+  coordinates = {
+    { x = 9.5, y = 0.5 }, { x = 3, y = 9 }, { x = 7.5, y = 9 },
+    { x = 6, y = 15.5 }, { x = 13, y = 6.5 }, { x = 8.5, y = 6.5 },
+  },
+}):imageFromCanvas(), true)
 
 -- Global, like q11SwipeReport: `hs -c 'q11PollRefresh()'` re-reads on demand
 -- rather than waiting out the timer — which is what you want the moment the
@@ -319,8 +644,8 @@ function q11PollRefresh()
     local hz = out and tonumber(out:match("rf=(%d+)"))
     if not q11PollBar then return end
     q11PollBar:setTitle(hz
-      and ("⌁" .. (hz >= 1000 and math.floor(hz / 1000) .. "K" or hz))
-      or "⌁?") -- keyboard asleep or Launcher holding the interface
+      and (hz >= 1000 and math.floor(hz / 1000) .. "K" or tostring(hz))
+      or "?") -- keyboard asleep or Launcher holding the interface
     local menu = {}
     for _, r in ipairs(POLL_RATES) do
       menu[#menu + 1] = {
@@ -374,34 +699,38 @@ end
 -- a momentary tap anyway — so build the list from `stage list --json` and make
 -- it pick rather than merely display.
 local function showStages()
-  hs.task.new(RCMD, function(code, out)
+  -- global: an unreferenced task can be collected before its callback runs,
+  -- and then the tap does nothing with nothing to see
+  q11StageTask = hs.task.new(RCMD, function(code, out)
     if code ~= 0 then return end
     local ok, data = pcall(hs.json.decode, out)
     if not ok or type(data) ~= "table" or type(data.stages) ~= "table" then return end
-    local choices = {}
+    local panes = {}
     for _, s in ipairs(data.stages) do
+      local icons, apps, seen = {}, {}, {}
+      for _, item in ipairs(s.items or {}) do
+        -- one icon per app: two Zen windows are still one thing to recognise
+        if item.bundleID and not seen[item.bundleID] then
+          seen[item.bundleID] = true
+          icons[#icons + 1] = hs.image.imageFromAppBundle(item.bundleID)
+          apps[#apps + 1] = item.appName or item.bundleID
+        end
+      end
       local count = #(s.items or {})
-      choices[#choices + 1] = {
-        text = s.name or tostring(s.key),
-        subText = ("%s%d window%s · caps-%s"):format(
-          s.isActive and "active · " or "", count,
-          count == 1 and "" or "s", tostring(s.key):upper()),
-        key = s.key,
+      panes[#panes + 1] = {
+        label = s.name or tostring(s.key), key = s.key, icons = icons,
+        selected = s.isActive,
+        detail = ("%s · %d window%s%s"):format(table.concat(apps, ", "), count,
+          count == 1 and "" or "s", s.isActive and " · active" or ""),
+        pick = function() rcmd("stage", "activate", s.key) end,
       }
     end
-    if #choices == 0 then return end
-    -- Rebuilt per invocation so the list cannot go stale; the old one is
-    -- deleted rather than left for GC, same reasoning as the taps.
-    if q11StageChooser then q11StageChooser:delete() end
-    q11StageChooser = hs.chooser.new(function(pick)
-      if pick and pick.key then rcmd("stage", "activate", pick.key) end
-    end)
-    q11StageChooser:placeholderText("stage")
-    q11StageChooser:rows(#choices)
-    q11StageChooser:choices(choices)
-    q11StageChooser:show()
-  end, { "stage", "list", "--json" }):start()
+    if #panes == 0 then return end
+    bezel(panes)
+  end, { "stage", "list", "--json" })
+  q11StageTask:start()
 end
+q11ShowStages = showStages -- global for `hs -c`, to open the picker without a trackpad
 
 local GESTURES = {
   -- cmd + four: window placement. `place` takes halves, corners, thirds and
@@ -741,7 +1070,8 @@ q11Health = hs.timer.doEvery(30, function()
   end
 end)
 
-hs.alert.show("keychron-q11 armed")
+bezel({ { label = "keychron-q11 armed", art = q11Art } }, 1.6)
+q11ShowBezel = bezel -- global for `hs -c`, to look at a bezel without a trackpad
 -- Storykeep's meeting watcher lives in casey-claude-setup, which no other
 -- host that runs this router has. Guarded so a missing repo costs a console
 -- line instead of the tail of this file.

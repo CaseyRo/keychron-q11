@@ -3,6 +3,7 @@
 #
 #   ./install.sh              Hammerspoon router (M-keys, encoders, Spotify)
 #   ./install.sh --backlight  also install the day/night backlight agent
+#   ./install.sh --nowplaying also publish the office's music as Now Playing
 #
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -19,14 +20,23 @@ fi
 ln -sfn "$PWD/hammerspoon" ~/.hammerspoon
 echo "✓ hammerspoon config linked"
 
-if [ "${1:-}" = "--backlight" ]; then
-  command -v uv >/dev/null || { echo "uv required for the backlight agent: brew install uv" >&2; exit 1; }
-  label=com.cdit.keychron-q11.backlight
-  plist=~/Library/LaunchAgents/$label.plist
-  sed -e "s|__UV__|$(command -v uv)|" -e "s|__REPO__|$PWD|" \
-    "backlight/$label.plist" > "$plist"
+# Render a launchd template from <dir>/<label>.plist and (re)load it.
+agent() {
+  command -v uv >/dev/null || { echo "uv required for $2: brew install uv" >&2; exit 1; }
+  local label=com.cdit.keychron-q11.$1 plist=~/Library/LaunchAgents/com.cdit.keychron-q11.$1.plist
+  sed -e "s|__UV__|$(command -v uv)|" -e "s|__REPO__|$PWD|" "$1/$label.plist" > "$plist"
   launchctl bootout "gui/$(id -u)/$label" 2>/dev/null || true
   launchctl bootstrap "gui/$(id -u)" "$plist"
+}
+
+if [[ " $* " == *" --nowplaying "* ]]; then
+  agent nowplaying "the Now Playing agent"
+  echo "✓ now playing agent loaded (needs HA_URL and OFFICE_PLAYERS in"
+  echo "  ~/.config/keychron-q11.env — see README)"
+fi
+
+if [[ " $* " == *" --backlight "* ]]; then
+  agent backlight "the backlight agent"
   echo "✓ backlight agent loaded (polls every 10 min; follows Home Assistant"
   echo "  house mode if configured, else the clock — see backlight/keylight.py)"
 fi

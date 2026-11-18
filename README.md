@@ -3,17 +3,21 @@
 **Host-side control for the Keychron Q11 Ultra 8K on macOS** — turn the
 split keyboard's macro column and two knobs into workspace keys,
 context-aware encoders, and a backlight that follows the house. Includes
-the first published host-control protocol for Keychron's ZMK-based Ultra
-series ([docs/protocol.md](docs/protocol.md)).
+a write-up of the host-control protocol for Keychron's ZMK-based Ultra
+series, captured on the wire and checked against Keychron's own source
+([docs/protocol.md](docs/protocol.md)).
 
 ```
 Q11 Ultra ──USB/2.4G──▶ Hammerspoon router ─┬─▶ Spaces / splits / scroll    local
-                                            └─▶ ssh ─▶ herdr host    terminal only
+                                            ├─▶ ssh ─▶ herdr host    terminal only
+                                            └─▶ Home Assistant       right knob only
                         keylight.py (launchd) ──▶ backlight follows HA house mode
+                        nowplaying.py (launchd) ─▶ office music as macOS Now Playing
 ```
 
-That split is the first thing to check when something feels broken: only
-the terminal path leaves the machine, so if the encoder works everywhere
+That split is the first thing to check when something feels broken: the
+terminal path and the right knob are the only ones that leave the machine,
+so if the left encoder works everywhere
 *except* in the terminal, suspect ssh rather than the keyboard.
 
 Install steps and the reasoning behind the design are in
@@ -27,16 +31,19 @@ Install steps and the reasoning behind the design are in
 | left knob | terminal | walk Herdr splits, on into the next space past the last one (wraps) |
 | left knob | elsewhere | macOS Spaces left/right |
 | left knob press | terminal / elsewhere | zoom split / Mission Control |
-| right knob | terminal / elsewhere | the left knob with the other hand — splits / macOS Spaces (needs the [Launcher keymap](docs/launcher-keymap.md)) |
-| right knob press | terminal / elsewhere | zoom split / Mission Control |
+| right knob | anywhere | volume of whichever office player is playing, else the amplifier (Home Assistant; needs the [Launcher keymap](docs/launcher-keymap.md)) |
+| right knob press | anywhere | play/pause that player |
+| right knob double press | anywhere | pause for three minutes, then resume; a single press resumes early |
+| right knob feedback | anywhere | a bezel in the middle of the screen: the level as a speaker over sixteen blocks, play or pause with the title, the break |
 | right knob (scroll layer) | anywhere | scroll under pointer; press = jump to bottom |
-| 4-finger tap | anywhere | pick a stage from a list of all of them |
+| 4-finger tap | anywhere | pick a stage from a bezel of all of them, each shown by its apps (←/→ or its letter, return, escape) |
 | ⌘ + 4-finger swipe ←/→ | anywhere | place window left / right half |
 | ⌘ + 4-finger swipe ↑/↓ | anywhere | maximize / centre window |
+| Now Playing | office music playing or paused | the office's title and artist are this Mac's Now Playing, so Top Shelf's music widget, Control Center and the play key show and play/pause it (`./install.sh --nowplaying`) |
 | backlight | house mode `day`/`away` | off; restored on every other mode (launchd, 10 min poll) |
 | Herdr theme | house mode `day`/`away` · `evening` · `night` | light · medium · dark Cobalt×CDiT; other modes follow macOS (`bin/herdr-daylight`, 5 min + wake) |
 | mouse select in Herdr | Herdr | copies the selection, like Warp |
-| `⌁` menubar | anywhere | show / switch the 2.4G polling rate, 125–8000 Hz |
+| bolt menubar item | anywhere | show / switch the 2.4G polling rate, 125–8000 Hz |
 
 Workspace navigation speaks to **herdr** (a terminal workspace manager)
 over its socket API — optionally on a remote host via multiplexed ssh.
@@ -163,6 +170,20 @@ security add-generic-password -s keychron-q11-ha -a "$USER" -w   # prompts, no s
 
 No conf file or no token → it silently falls back to the `DAY_STARTS`/
 `DAY_ENDS` clock, same as before. Same for HA being down or off-network.
+
+### Office music (optional)
+
+The right knob and the Now Playing agent use the same URL and token, plus
+two more lines in `~/.config/keychron-q11.env` naming your players:
+
+```bash
+OFFICE_PLAYERS=media_player.one,media_player.two   # whichever plays gets the knob
+OFFICE_AMP=media_player.amplifier                  # volume target when none does
+```
+
+Without them the knob does nothing and the agent exits. While the agent
+holds Now Playing, the keyboard's play key pauses the office, not the Mac,
+until something on the Mac starts playing.
 
 ## Install
 

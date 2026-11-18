@@ -4,21 +4,51 @@ Why the pieces are shaped this way. Behavior itself is in the code and in the
 [README](../../README.md) control table; this page is the reasoning behind the
 shape.
 
-## Three paths, and why the split is a diagnostic
+## Four paths, and why the split is a diagnostic
 
-A keypress takes one of three routes:
+A keypress takes one of four routes:
 
 - **Local.** Spaces, Mission Control, scrolling and trackpad
   gestures. Hammerspoon and nothing else.
 - **Remote.** Workspace and split navigation, carried to the herdr host over
   one multiplexed ssh connection.
-- **Background.** The launchd agent, polling every ten minutes, speaking HID
-  to the keyboard to set the backlight.
+- **House.** The right knob, as HTTP calls to Home Assistant for the office's
+  music.
+- **Background.** Two launchd agents: one polling every ten minutes and
+  speaking HID to the keyboard to set the backlight, one holding the Mac's Now
+  Playing entry for the office's music.
 
-Only the middle path leaves the machine, and that is the useful part. A
+Only the two middle paths leave the machine, and that is the useful part. A
 control that works everywhere except inside the terminal is an ssh fault, not
 a keyboard fault. That single distinction has resolved the same report twice,
-both times after the keyboard was suspected first.
+both times after the keyboard was suspected first. A right knob that does
+nothing while the left one works is the same reading for Home Assistant.
+
+The knob does not name a player. It asks Home Assistant which office player
+is playing on each use, because the room has several and the one that plays
+changes; the house already knows, and a name fixed here would be a second
+copy of that knowledge going stale. The list of candidates is in the conf
+file, not in the code, for the same reason: the knob and the Now Playing
+agent both read it, and entity IDs describe a house, not this repo.
+
+Now Playing is the one door into other software that needs no cooperation
+from it. Bartender's Top Shelf has no status of its own to write to, but it
+reads the system's Now Playing like everything else does, so publishing there
+reaches it, Control Center and the play key at once. Now Playing has no field
+for a volume step or a three minute break, so those are drawn by the router
+itself, in its own bezel. Top Shelf's agent bridge can be made to show them,
+dressed as a finished prompt; that was tried and dropped, because a notice
+reading "Claude finished - Vol 55%" is a lie about who did what.
+
+## One bezel
+
+Everything the router draws is a single form, borrowed from Quicksilver: a
+panel of large square panes, each a picture over a label, one line of detail
+beneath. The stage picker is the reason. A stage is a set of apps, and the
+fastest way to tell two apps apart is their icons at a size where they can be
+recognised, which a list row has no room for. Once that form existed, the
+volume step, the play state and the startup notice became one-pane cases of
+it, and the router stopped having three unrelated looks.
 
 ## The ssh master is load bearing, not an optimisation
 
@@ -75,8 +105,10 @@ why reads retry rather than trusting a single round trip.
 
 ## Fail soft, everywhere
 
-Every remote action names a local fallback, so a dead herdr host degrades to
-plain keystrokes instead of dead keys. Setting the remote host to nil is
+Every herdr action names a local fallback, so a dead herdr host degrades to
+plain keystrokes instead of dead keys. The right knob is the one exception:
+an unreachable Home Assistant fails only after a long timeout, and volume
+steps arriving a minute late are worse than a knob that does nothing. Setting the remote host to nil is
 supported and documented, and the backlight agent treats an unreachable Home
 Assistant as a reason to fall back to the clock rather than to leave the
 keyboard wrong.

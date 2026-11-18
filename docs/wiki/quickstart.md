@@ -7,7 +7,8 @@ agent keeps the backlight following the house.
 
 ## Shortest path
 
-1. `./install.sh`, adding `--backlight` if you also want the lighting agent.
+1. `./install.sh`, adding `--backlight` if you also want the lighting agent
+   and `--nowplaying` for the office music one.
    It symlinks `~/.hammerspoon` at this repo and opens Hammerspoon.
 2. Grant Accessibility when prompted. The alert "keychron-q11 armed" means the
    router loaded.
@@ -36,8 +37,9 @@ home for everything else.
 
 ## Two things worth knowing before you debug
 
-Only the workspace navigation path leaves this machine. A control that works
-everywhere except inside the terminal is an ssh problem, not a keyboard
+Two paths leave this machine: workspace navigation and the right knob. A
+control that works everywhere except inside the terminal is an ssh problem,
+and a dead right knob is a Home Assistant problem; neither is a keyboard
 problem. See [architecture](architecture.md).
 
 Most bindings go through `hs.hotkey.bind`, but M2 and M3 go through an event

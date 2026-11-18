@@ -37,6 +37,7 @@ hs -c 'q11PollRefresh()'                 # re-read the polling rate now
 
 ```bash
 uv run backlight/keylight.py selftest    # parsing, backlight, polling rules
+uv run nowplaying/nowplaying.py selftest # Home Assistant answer parsing
 hs -c 'return q11SwipeSelfTest()'        # swipe, tap and scroll swallow
 hs -c 'return q11CycleSelfTest()'        # the encoder's split ring
 ```
@@ -60,5 +61,6 @@ holds the same interface and steals replies, which is why reads retry.
 | --- | --- |
 | `hammerspoon/init.lua` | the router: keys, encoders, gestures, menubar |
 | `backlight/keylight.py` | HID client: backlight and polling rate |
+| `nowplaying/nowplaying.py` | launchd agent: office music as macOS Now Playing |
 | `bin/q11-herdr` | runs on the remote host, not this one |
 | `docs/` | protocol notes, keymap, wiki |
