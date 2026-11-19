@@ -129,9 +129,18 @@ nothing better is known to the house: Music Assistant has no ad detection.
 One 25 minute log of Radio Veronica (2026-11-18) showed a single song title
 held for about ten minutes, which suggests the station keeps the last title
 through a break and changes it when music returns. That is inferred from
-timing in one log and not verified. Veronica also plays the same jingle
-before and after a block, which a listener on the stream could match; neither
-route is built.
+timing in one log and not verified.
+
+The jingle route is measured. One recorded hour (2026-11-19, 10:50 to 11:50)
+with the blocks marked by ear has a sting of under a second that opens and
+closes each run of commercials: six hits at a match of 0.88 or better and
+nothing else above 0.66. It comes in pairs, so "mute on one, unmute on the
+next" holds, and two of the three runs were 181 seconds. A longer block
+contains two pairs with news between them. A second, different jingle can
+open a block half a minute before the first sting; it appeared once and is
+not fingerprinted. The recording, the sting and the titles are in
+`~/Desktop/veronica/`. The listener that would act on this is not built, and
+belongs with the music stack rather than in this repo.
 
 ## Where this stands against everyone else
 
