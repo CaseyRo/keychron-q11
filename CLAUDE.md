@@ -21,9 +21,17 @@ says, it stays flat, and every page is reachable from the Map in quickstart.
 consequences worth knowing before you edit:
 
 - There is no deploy step, and no copy to keep in sync.
-- The reload briefly blocks the `hs` IPC port, so an `hs -c` call issued right
-  after a write will time out. Wait a few seconds and retry rather than
+- The reload blocks the `hs` IPC port, so an `hs -c` call issued right after a
+  write hangs or errors ("ipc port is no longer valid", "receive timeout").
+  Measured 2026-11-18: 45 to 90 seconds, not a few. Wait a minute, and bound
+  each call (`perl -e 'alarm 12; exec @ARGV' hs -c '...'`) rather than
   concluding something broke.
+- Do not kill a hung `hs -c` and carry on: the dead client leaves the port
+  broken until the next reload. `pkill -f '^hs -c'`, then
+  `touch hammerspoon/init.lua` and wait again.
+- Synthetic keystrokes (`hs.eventtap.keyStroke`) do not fire the router's own
+  hotkeys. To exercise a binding, call its global instead: `q11Volume`,
+  `q11MusicPress`, `q11ShowStages`, `q11ShowBezel`.
 
 Check a live router with `hs -c`, which the config deliberately exposes:
 

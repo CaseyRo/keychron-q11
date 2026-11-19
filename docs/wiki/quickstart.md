@@ -50,7 +50,8 @@ independently, so "encoder fine, M keys dead" is a real and useful signal.
 
 - [quickstart](quickstart.md): this page. Install, and which document answers
   which kind of question.
-- [architecture](architecture.md): the three paths a keypress can take, and
-  the design calls behind them.
+- [architecture](architecture.md): the four paths a keypress can take, the
+  design calls behind them, what is left unsolved, and how this stands
+  against other Q11 Ultra setups.
 - [DOCTRINE](DOCTRINE.md): the structure rules every change to this wiki
   follows, including what a compiler run may and may not generate.

@@ -123,3 +123,21 @@ Battery level. The keyboard exposes no HID battery usage, the Launcher never
 queries one for this board, and the receiver answers the documented vendor
 request with zeros and then silence. The evidence and the untested routes are
 in [protocol](../protocol.md) so the ground is not covered twice.
+
+Radio commercials. The double press is a fixed three minute pause because
+nothing better is known to the house: Music Assistant has no ad detection.
+One 25 minute log of Radio Veronica (2026-11-18) showed a single song title
+held for about ten minutes, which suggests the station keeps the last title
+through a break and changes it when music returns. That is inferred from
+timing in one log and not verified. Veronica also plays the same jingle
+before and after a block, which a listener on the stream could match; neither
+route is built.
+
+## Where this stands against everyone else
+
+Checked 2026-11-18. Nobody has published a better host side setup for the Q11
+Ultra; what exists is Launcher remaps. Keychron published its ZMK fork on
+2026-05-23 (branch `rtl8762g`), with about fifty boards and not this one, so
+custom firmware is still not an option and the split of work here, plain
+signals from the board and meaning on the Mac, stays the right one. The
+board's own firmware version was not checked in that pass.
