@@ -9,16 +9,10 @@
 require("hs.ipc") -- `hs -c "..."` introspection; first, so a later throw is diagnosable
 
 -- ── config ──────────────────────────────────────────────────────────────
--- Optional: an ssh host running herdr (terminal workspace manager) for
--- real workspace/split navigation. Set to nil if you don't use herdr —
--- everything degrades to plain Cmd+N / tab-cycling keystrokes.
-local REMOTE = "cc1"
-local REMOTE_HELPER = "dev/keychron-q11/bin/q11-herdr"
--- Terminals to treat as "the cockpit", in preference order.
+-- M1–M5 and the left knob (F13–F20) moved to Atrium (~/dev/atrium, Keys.swift)
+-- on 25 Nov 2026, COS-299; this file keeps the rest until it moves too.
+-- Herdr desktop, for copy on select below.
 local HERDR_APP_ID = "dev.herdr.app"
-local TERMINALS = { HERDR_APP_ID, "dev.warp.Warp-Stable", "com.googlecode.iterm2" }
--- Herdr desktop's CLI. When the app runs, herdr verbs go here — local, no ssh;
--- the app reaches cc1's spaces itself.
 local HERDR_APP = os.getenv("HOME") .. "/.local/bin/herdr-app"
 -- This repo, and uv, for the polling-rate menubar: it shells out to
 -- keylight.py because Lua has no hidapi. Absolute, because hs.task gets no
@@ -28,9 +22,6 @@ local HERDR_APP = os.getenv("HOME") .. "/.local/bin/herdr-app"
 -- one. A constant is one line and cannot be wrong.
 local REPO = os.getenv("HOME") .. "/dev/keychron-q11"
 local UV = "/opt/homebrew/bin/uv"
--- Ceiling on one herdr call, seconds. Past this, fall back to the local
--- keystroke rather than let presses queue behind a dead ssh.
-local HERDR_TIMEOUT = 3
 -- Apps that own the trackpad outright, by bundle ID. Games read raw finger
 -- movement, so the gesture layer stands down while one is frontmost. Read a
 -- real ID rather than guessing — by name, since asking for the frontmost app
@@ -245,222 +236,6 @@ q11Muted = muteApp(hs.application.frontmostApplication())
 q11AppWatcher = hs.application.watcher.new(function(_, event, app)
   if event == hs.application.watcher.activated then q11Muted = muteApp(app) end
 end):start()
-
-local function terminalFrontmost()
-  local app = hs.application.frontmostApplication()
-  return app and hs.fnutils.contains(TERMINALS, app:bundleID())
-end
-
-local function focusTerminal()
-  for _, id in ipairs(TERMINALS) do
-    if hs.application.get(id) then
-      hs.application.launchOrFocusByBundleID(id)
-      return
-    end
-  end
-  hs.application.launchOrFocusByBundleID(TERMINALS[1])
-end
-
--- One multiplexed connection carries every press: ~85ms warm vs ~2.6s cold.
--- %n not %h (Tailscale re-addresses and orphans the master); ControlPersist=yes
--- not a finite value (idle expiry put the cold path back on the next keypress);
--- ServerAlive* because ConnectTimeout bounds only the TCP connect — but those
--- keepalives stay deliberately slack. At 2s/2, any four-second stall on the
--- Tailscale link tore down a *healthy* master, and the next terminal press paid
--- the ~2.6s cold rebuild against a 3s HERDR_TIMEOUT: read by hand as "the
--- keyboard is dead again". They bound nothing a press depends on — the
--- HERDR_TIMEOUT timer in herdr() already kills a stalled call at 3s — so they
--- only have to outlive an ordinary hiccup while still noticing a genuinely dead
--- host before the next 30s warm tick.
-local SSH_OPTS = {
-  "-o", "BatchMode=yes",
-  "-o", "ConnectTimeout=2",
-  "-o", "ControlMaster=auto",
-  "-o", "ControlPath=/tmp/keychron-q11-%r@%n",
-  "-o", "ControlPersist=yes",
-  "-o", "ServerAliveInterval=10",
-  "-o", "ServerAliveCountMax=3",
-}
-
--- Failed warms land here, newest last; read it with
--- `hs -c 'return q11SshReport()'` the moment terminal keys feel slow. A warm
--- test run afterwards always passes and hides the bug, so this is the only
--- record of the failures nobody was watching. A ring buffer, not print(), for
--- the reason spelled out above q11SwipeReport.
-q11SshLog = {}
-function q11SshReport()
-  return #q11SshLog == 0 and "no failed ssh warms recorded"
-    or table.concat(q11SshLog, "\n")
-end
-
--- Run the herdr helper on cc1; on failure fall back to a plain keystroke.
--- q11-herdr's verbs, spelled as Herdr desktop commands.
-local function appArgs(args)
-  local verb = args[1]
-  if verb == "focus" then return { "do", "space.select", "--index", args[2] } end
-  local cmd = ({ next = "space.next", prev = "space.prev", zoom = "pane.zoom" })[verb]
-  return cmd and { "do", cmd }
-end
-
--- Pure, so the ring is checkable without a window — see q11CycleSelfTest.
--- Every pane the window lists as one ring: the splits of a space in order,
--- then on into the next space, wrapping at the end. `ls` lists panes by their
--- terminal, so a pane holding a mod is skipped.
--- shortcut: no mod panes, add them here when one is worth stopping on.
-local function nextPane(list, focused, step)
-  local panes = {}
-  for _, space in ipairs(list.spaces or {}) do
-    for _, tab in ipairs(space.tabs or {}) do
-      for _, t in ipairs(tab.terminals or {}) do panes[#panes + 1] = t.pane end
-    end
-  end
-  local at = hs.fnutils.indexOf(panes, focused)
-  return at and panes[(at - 1 + step) % #panes + 1]
-end
-
-function q11CycleSelfTest()
-  local list = { spaces = {
-    { tabs = { { terminals = { { pane = "a" }, { pane = "b" } } } } },
-    { tabs = { { terminals = { { pane = "c" } } },
-               { terminals = { { pane = "d" } } } } },
-  } }
-  local cases = {
-    { "a", 1, "b" },    -- the next split of the same space
-    { "b", 1, "c" },    -- last split of a space: on into the next space
-    { "d", 1, "a" },    -- and around
-    { "a", -1, "d" },   -- backwards wraps too
-    { "c", -1, "b" },
-    { "gone", 1, nil }, -- a pane the window no longer lists
-  }
-  for _, c in ipairs(cases) do
-    local got = nextPane(list, c[1], c[2])
-    assert(got == c[3], ("nextPane(%s,%d)=%s want %s")
-      :format(c[1], c[2], tostring(got), tostring(c[3])))
-  end
-  assert(nextPane({ spaces = {} }, "a", 1) == nil, "empty window must not move")
-  return "selftest ok (split ring)"
-end
-
--- Herdr desktop has no next-split verb, so the walk is three calls: the panes,
--- the focused one, then focus its neighbour. ~8ms each, local, no ssh.
-local cycling = false
-local function appCycle(step, fallback)
-  if cycling then return end -- a spin advances one pane per completed walk
-  cycling = true
-  -- insurance only: every path below clears the flag, but a call that never
-  -- returns would otherwise leave the encoder dead with nothing to see.
-  hs.timer.doAfter(HERDR_TIMEOUT, function() cycling = false end)
-  local function stop(failed)
-    cycling = false
-    if failed and fallback then fallback() end
-  end
-  local function call(args, onJson)
-    hs.task.new(HERDR_APP, function(code, out)
-      local v = code == 0 and hs.json.decode(out or "")
-      if v then onJson(v) else stop(true) end
-    end, args):start()
-  end
-  call({ "ls" }, function(list)
-    call({ "status" }, function(st)
-      local target = nextPane(list, st.focused_pane, step)
-      if not target then return stop(true) end
-      call({ "do", "pane.focus", "--pane", target }, function() stop(false) end)
-    end)
-  end)
-end
-
-local function herdr(args, fallback)
-  if args[1] == "cycle" and hs.application.get(HERDR_APP_ID) then
-    return appCycle(args[2] == "prev" and -1 or 1, fallback)
-  end
-  local app = hs.application.get(HERDR_APP_ID) and appArgs(args)
-  if app then
-    hs.task.new(HERDR_APP, function(exitCode)
-      if exitCode ~= 0 and fallback then fallback() end
-    end, app):start()
-    return
-  end
-  if not REMOTE then
-    if fallback then fallback() end
-    return
-  end
-  local sshArgs = table.move(SSH_OPTS, 1, #SSH_OPTS, 1, { })
-  sshArgs[#sshArgs + 1] = REMOTE
-  sshArgs[#sshArgs + 1] = REMOTE_HELPER
-  for _, a in ipairs(args) do sshArgs[#sshArgs + 1] = a end
-  local task = hs.task.new("/usr/bin/ssh", function(exitCode)
-    if exitCode ~= 0 and fallback then fallback() end
-  end, sshArgs)
-  task:start()
-  -- terminate() SIGTERMs, so the callback above fires with exitCode 15 and runs
-  -- the fallback itself — no second path needed here.
-  hs.timer.doAfter(HERDR_TIMEOUT, function()
-    if task:isRunning() then task:terminate() end
-  end)
-end
-
--- M1–M5 (F13–F17): the flight-deck selector. From anywhere, focus the
--- terminal and jump to herdr workspace N; herdr down → terminal tab N.
-local function jumpWorkspace(n)
-  focusTerminal()
-  herdr({ "focus", tostring(n) }, function()
-    hs.eventtap.keyStroke({ "cmd" }, tostring(n))
-  end)
-end
-
-for key, ws in pairs({ f13 = 1, f16 = 4, f17 = 5 }) do
-  hs.hotkey.bind({}, key, function() jumpWorkspace(ws) end)
-end
-
--- macOS eats bare F14/F15 as legacy display-brightness keys before hotkey
--- registration sees them — an event tap runs earlier and swallows them.
-local F14, F15 = 107, 113
-q11MTap = hs.eventtap.new({ hs.eventtap.event.types.keyDown }, function(e)
-  local code = e:getKeyCode()
-  if code ~= F14 and code ~= F15 then return false end
-  local f = e:getFlags()
-  if f.cmd or f.alt or f.ctrl or f.shift then return false end
-  -- macOS blocks the ENTIRE input stream until a keyDown tap returns, and
-  -- focusTerminal() can take seconds on a loaded Mac. doAfter(0) moves it to the
-  -- next runloop pass so a slow jump never freezes typing system-wide.
-  local ws = code == F14 and 2 or 3
-  hs.timer.doAfter(0, function() jumpWorkspace(ws) end)
-  return true -- delete the event so brightness never fires
-end)
-q11MTap:start() -- global on purpose: locals get GC'd and the tap dies
-
--- Encoder rotate (F18 = ccw, F19 = cw): in the terminal walk the splits
--- with wraparound, on into the next space past the last split of this one;
--- elsewhere move through macOS Spaces. Splits, because stopping on every pane
--- is the point of the knob — the M-keys stay the direct jump to a space, so
--- nothing is slower to reach than it was.
-local function encoderTurn(dir, spaceKey, tabKey)
-  return function()
-    if terminalFrontmost() then
-      herdr({ "cycle", dir }, function()
-        hs.eventtap.keyStroke({ "cmd", "shift" }, tabKey)
-      end)
-    else
-      hs.eventtap.keyStroke({ "ctrl" }, spaceKey)
-    end
-  end
-end
-local turnPrev = encoderTurn("prev", "left", "[")
-local turnNext = encoderTurn("next", "right", "]")
-
--- Encoder press (F20): zoom the focused split in the terminal,
--- Mission Control everywhere else.
-local function pressZoom()
-  if terminalFrontmost() then
-    herdr({ "zoom" }, hs.spaces.toggleMissionControl)
-  else
-    hs.spaces.toggleMissionControl()
-  end
-end
-
-hs.hotkey.bind({}, "f18", turnPrev)
-hs.hotkey.bind({}, "f19", turnNext)
-hs.hotkey.bind({}, "f20", pressZoom)
 
 -- The right encoder, base layer: the office's music, through Home Assistant.
 -- Turn = volume, press = play/pause, double press = a three minute break that
@@ -983,12 +758,10 @@ end):start()
 -- reload builds new ones without stopping the old — two live taps swallow the
 -- same press twice.
 function hs.shutdownCallback()
-  if q11MTap then q11MTap:stop() end
   if q11GestureTap then q11GestureTap:stop() end
   if q11Watcher then q11Watcher:stop() end
   if q11AppWatcher then q11AppWatcher:stop() end
   if q11Health then q11Health:stop() end
-  if q11SshWarm and q11SshWarm:isRunning() then q11SshWarm:terminate() end
   if q11PollTimer then q11PollTimer:stop() end
   if q11PollBar then q11PollBar:delete() end
 end
@@ -1028,7 +801,6 @@ end):start()
 herdrDaylight()
 
 q11Health = hs.timer.doEvery(30, function()
-  if q11MTap then q11MTap:stop():start() end
   if q11CopyTap then q11CopyTap:stop():start() end
   if q11GestureTap then
     q11GestureTap:stop():start()
@@ -1043,30 +815,6 @@ q11Health = hs.timer.doEvery(30, function()
   if present ~= q11ReceiverSeen then
     q11ReceiverSeen = present
     hs.timer.doAfter(present and 1.5 or 0, q11PollRefresh)
-  end
-  -- Keep the ssh master alive. ControlPersist=yes holds a *live* master
-  -- indefinitely but resurrects nothing once one dies, and
-  -- ServerAliveInterval=2/CountMax=2 tears it down after four seconds of stall
-  -- — a laptop sleep or a Tailscale re-route does that easily. Nothing then
-  -- rebuilds it until a keypress tries to, and cold measured 6.9s here against
-  -- a 3s HERDR_TIMEOUT, so that press is guaranteed to be killed and fall
-  -- through to the local fallback. Every M-key and left-encoder press in the
-  -- terminal is dead until something warms the master, which is exactly the
-  -- "works again after a while" that sent us hunting the keyboard twice.
-  -- Rebuilding here costs a blip 30s of staleness instead of a keypress.
-  if REMOTE and not (q11SshWarm and q11SshWarm:isRunning()) then
-    local warm = table.move(SSH_OPTS, 1, #SSH_OPTS, 1, { })
-    warm[#warm + 1] = REMOTE
-    warm[#warm + 1] = "true" -- cheapest possible remote command
-    -- A nil callback here swallowed every failed warm, so a master that stayed
-    -- dead read as broken hardware twice over. Record it instead.
-    q11SshWarm = hs.task.new("/usr/bin/ssh", function(code, _, err)
-      if code == 0 then return end
-      q11SshLog[#q11SshLog + 1] = os.date("%H:%M:%S ") .. "warm exit=" .. code
-        .. " " .. ((err or ""):gsub("%s+$", ""))
-      if #q11SshLog > 20 then table.remove(q11SshLog, 1) end
-    end, warm)
-    q11SshWarm:start()
   end
 end)
 

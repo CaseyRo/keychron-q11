@@ -2,6 +2,10 @@
 
 Host side control for a Keychron Q11 Ultra 8K on macOS.
 
+It is moving into Atrium (`~/dev/atrium`), one native app, piece by piece (COS-299).
+M1–M5 and the left knob already live there (`Sources/Atrium/Keys.swift`); the
+rest of this repo still runs until it moves too.
+
 ## Read the wiki before exploring source
 
 Start at [docs/wiki/quickstart.md](docs/wiki/quickstart.md). It says which
@@ -31,12 +35,13 @@ consequences worth knowing before you edit:
   `touch hammerspoon/init.lua` and wait again.
 - Synthetic keystrokes (`hs.eventtap.keyStroke`) do not fire the router's own
   hotkeys. To exercise a binding, call its global instead: `q11Volume`,
-  `q11MusicPress`, `q11ShowStages`, `q11ShowBezel`.
+  `q11MusicPress`, `q11ShowStages`, `q11ShowBezel`. The left knob and
+  M1–M5 are Atrium's now: grep `keys:` in `~/Library/Logs/Atrium.log`.
 
 Check a live router with `hs -c`, which the config deliberately exposes:
 
 ```bash
-hs -c 'return #hs.hotkey.getHotkeys()'   # expect 10, F14 and F15 absent
+hs -c 'return #hs.hotkey.getHotkeys()'   # expect 4, the right knob's ⌘⌃⌥ keys
 hs -c 'return hs.accessibilityState()'
 hs -c 'q11PollRefresh()'                 # re-read the polling rate now
 ```
@@ -47,7 +52,7 @@ hs -c 'q11PollRefresh()'                 # re-read the polling rate now
 uv run backlight/keylight.py selftest    # parsing, backlight, polling rules
 uv run nowplaying/nowplaying.py selftest # Home Assistant answer parsing
 hs -c 'return q11SwipeSelfTest()'        # swipe, tap and scroll swallow
-hs -c 'return q11CycleSelfTest()'        # the encoder's split ring
+(cd ~/dev/atrium && swift test)          # the left knob's pane ring, in Atrium
 ```
 
 There is no build. These are the gate.

@@ -8,10 +8,11 @@ shape.
 
 A keypress takes one of four routes:
 
-- **Local.** Spaces, Mission Control, scrolling and trackpad
-  gestures. Hammerspoon and nothing else.
+- **Local.** Tabs, rcmd's Exposé, scrolling and trackpad gestures. Nothing
+  leaves the machine.
 - **Remote.** Workspace and split navigation, carried to the herdr host over
-  one multiplexed ssh connection.
+  one multiplexed ssh connection. Atrium runs this route since 25 Nov 2026
+  (COS-299); the reasoning on this page still holds for it.
 - **House.** The right knob, as HTTP calls to Home Assistant for the office's
   music.
 - **Background.** Two launchd agents: one polling every ten minutes and
