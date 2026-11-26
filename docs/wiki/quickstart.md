@@ -8,8 +8,7 @@ backlight following the house, the office music as Now Playing, the trackpad ges
 ## Shortest path
 
 1. `./install.sh`. It symlinks `~/.hammerspoon` at this repo and opens Hammerspoon.
-2. Grant Accessibility when prompted. The alert "keychron-q11 armed" means the
-   router loaded.
+2. Grant Accessibility when prompted.
 3. Bind the keys once in Keychron Launcher, following
    [launcher-keymap](../launcher-keymap.md).
 4. For M1–M5 and the left knob, build and start Atrium:
