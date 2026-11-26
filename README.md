@@ -20,6 +20,10 @@ terminal path and the right knob are the only ones that leave the machine,
 so if the left encoder works everywhere
 *except* in the terminal, suspect ssh rather than the keyboard.
 
+**Moving into Atrium.** Since 25 Nov 2026, M1–M5 and the left knob run in
+[Atrium](../atrium) (`Sources/Atrium/Keys.swift`), a native app, instead of
+Hammerspoon. The rest follows piece by piece; until then both run.
+
 Install steps and the reasoning behind the design are in
 [docs/wiki/quickstart.md](docs/wiki/quickstart.md).
 
@@ -27,10 +31,10 @@ Install steps and the reasoning behind the design are in
 
 | Control | Context | Action |
 | --- | --- | --- |
-| M1–M5 | anywhere | jump to Herdr space 1–5 (herdr TUI workspace when only Warp runs) |
-| left knob | terminal | walk Herdr splits, on into the next space past the last one (wraps) |
-| left knob | elsewhere | macOS Spaces left/right |
-| left knob press | terminal / elsewhere | zoom split / Mission Control |
+| M1–M5 | anywhere | jump to Herdr space 1–5 (herdr TUI workspace when only Warp runs). In Atrium |
+| left knob | terminal | walk Herdr splits, on into the next space past the last one (wraps). In Atrium |
+| left knob | elsewhere | the front app's tabs, ⌃Tab / ⌃⇧Tab. In Atrium |
+| left knob press | terminal / elsewhere | zoom split / rcmd's Exposé (right ⌘ + .). In Atrium |
 | right knob | anywhere | volume of whichever office player is playing, else the amplifier (Home Assistant; needs the [Launcher keymap](docs/launcher-keymap.md)) |
 | right knob press | anywhere | play/pause that player |
 | right knob double press | anywhere | pause for three minutes, then resume; a single press resumes early |
@@ -264,11 +268,11 @@ Spaces, the M-keys still focused the terminal, and only the herdr half did
 nothing. Measured on this link, a cold call took **6.9s against a 3s
 `HERDR_TIMEOUT`**, so the press was killed and fell through to the local
 fallback every single time. If terminal presses go dead again, read the
-warm log — failed warms are the evidence a later check can no longer show:
+warm log — failed warms are the evidence a later check can no longer show.
+The warm runs in Atrium now, which logs each failure:
 
 ```bash
-hs -c 'return q11SshReport()'                                  # failed warms
-hs -c 'return tostring(q11SshWarm and q11SshWarm:isRunning())' # wedged?
+grep 'keys:' ~/Library/Logs/Atrium.log   # failed warms, missing taps or hotkeys
 ```
 
 Four settings make that hold, all in `SSH_OPTS`: `ControlPersist=yes`
@@ -289,8 +293,7 @@ genuinely dead host before the next 30s warm tick.
 `hs.ipc` port, so you can interrogate the live router:
 
 ```bash
-hs -c 'return q11MTap:isEnabled()'      # lies — see trap 3
-hs -c 'return #hs.hotkey.getHotkeys()'  # expect 10 — F14/F15 must NOT appear
+hs -c 'return #hs.hotkey.getHotkeys()'  # expect 4 — the right knob's ⌘⌃⌥ keys
 hs -c 'return hs.accessibilityState()'
 ```
 

@@ -33,9 +33,9 @@ they mean per context.
 | M3               | `KC_F15` | terminal workspace 3 (event-tapped, see above)      |
 | M4               | `KC_F16` | terminal workspace 4                                |
 | M5               | `KC_F17` | terminal workspace 5                                |
-| Left knob ccw    | `KC_F18` | terminal: prev split/workspace · else Space left    |
-| Left knob cw     | `KC_F19` | terminal: next split/workspace · else Space right   |
-| Left knob press  | `KC_F20` | terminal: zoom split · else Mission Control         |
+| Left knob ccw    | `KC_F18` | terminal: prev split/workspace · else previous tab  |
+| Left knob cw     | `KC_F19` | terminal: next split/workspace · else next tab      |
+| Left knob press  | `KC_F20` | terminal: zoom split · else rcmd Exposé             |
 | Right knob ccw   | `LCAG(KC_F18)` | office music: volume down                     |
 | Right knob cw    | `LCAG(KC_F19)` | office music: volume up                       |
 | Right knob press | `LCAG(KC_F20)` | office music: play/pause · double = 3 min break |
