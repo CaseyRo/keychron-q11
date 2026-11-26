@@ -3,8 +3,9 @@
 Host side control for a Keychron Q11 Ultra 8K on macOS.
 
 It is moving into Atrium (`~/dev/atrium`), one native app, piece by piece (COS-299).
-M1–M5 and the left knob already live there (`Sources/Atrium/Keys.swift`); the
-rest of this repo still runs until it moves too.
+M1–M5, both knobs and the right knob's bezel already live there
+(`Sources/Atrium/Keys.swift`, `OfficeMusic.swift`, `Bezel.swift`); the rest of
+this repo still runs until it moves too.
 
 ## Read the wiki before exploring source
 
@@ -33,15 +34,14 @@ consequences worth knowing before you edit:
 - Do not kill a hung `hs -c` and carry on: the dead client leaves the port
   broken until the next reload. `pkill -f '^hs -c'`, then
   `touch hammerspoon/init.lua` and wait again.
-- Synthetic keystrokes (`hs.eventtap.keyStroke`) do not fire the router's own
-  hotkeys. To exercise a binding, call its global instead: `q11Volume`,
-  `q11MusicPress`, `q11ShowStages`, `q11ShowBezel`. The left knob and
-  M1–M5 are Atrium's now: grep `keys:` in `~/Library/Logs/Atrium.log`.
+- To exercise the router without a trackpad, call its globals:
+  `q11ShowStages`, `q11ShowBezel`. Every key is Atrium's now: grep `keys:`
+  and `music:` in `~/Library/Logs/Atrium.log`.
 
 Check a live router with `hs -c`, which the config deliberately exposes:
 
 ```bash
-hs -c 'return #hs.hotkey.getHotkeys()'   # expect 4, the right knob's ⌘⌃⌥ keys
+hs -c 'return #hs.hotkey.getHotkeys()'   # expect 0, every key is Atrium's
 hs -c 'return hs.accessibilityState()'
 hs -c 'q11PollRefresh()'                 # re-read the polling rate now
 ```
@@ -52,7 +52,7 @@ hs -c 'q11PollRefresh()'                 # re-read the polling rate now
 uv run backlight/keylight.py selftest    # parsing, backlight, polling rules
 uv run nowplaying/nowplaying.py selftest # Home Assistant answer parsing
 hs -c 'return q11SwipeSelfTest()'        # swipe, tap and scroll swallow
-(cd ~/dev/atrium && swift test)          # the left knob's pane ring, in Atrium
+(cd ~/dev/atrium && swift test)          # pane ring and office music parsing, in Atrium
 ```
 
 There is no build. These are the gate.
@@ -72,7 +72,7 @@ holds the same interface and steals replies, which is why reads retry.
 
 | Path | What it is |
 | --- | --- |
-| `hammerspoon/init.lua` | the router: keys, encoders, gestures, menubar |
+| `hammerspoon/init.lua` | the router's rest: gestures, stage picker, menubar, copy on select |
 | `backlight/keylight.py` | HID client: backlight and polling rate |
 | `nowplaying/nowplaying.py` | launchd agent: office music as macOS Now Playing |
 | `bin/q11-herdr` | runs on the remote host, not this one |

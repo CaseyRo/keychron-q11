@@ -14,7 +14,7 @@ A keypress takes one of four routes:
   one multiplexed ssh connection. Atrium runs this route since 25 Nov 2026
   (COS-299); the reasoning on this page still holds for it.
 - **House.** The right knob, as HTTP calls to Home Assistant for the office's
-  music.
+  music. Atrium runs this route too since 26 Nov 2026 (COS-305).
 - **Background.** Two launchd agents: one polling every ten minutes and
   speaking HID to the keyboard to set the backlight, one holding the Mac's Now
   Playing entry for the office's music.
@@ -49,7 +49,9 @@ beneath. The stage picker is the reason. A stage is a set of apps, and the
 fastest way to tell two apps apart is their icons at a size where they can be
 recognised, which a list row has no room for. Once that form existed, the
 volume step, the play state and the startup notice became one-pane cases of
-it, and the router stopped having three unrelated looks.
+it, and the router stopped having three unrelated looks. Atrium carries the
+same form as one reusable piece (`Bezel.swift`), so the stage picker moves
+into it rather than growing a second look.
 
 ## The ssh master is load bearing, not an optimisation
 
@@ -109,8 +111,9 @@ why reads retry rather than trusting a single round trip.
 
 Every herdr action names a local fallback, so a dead herdr host degrades to
 plain keystrokes instead of dead keys. The right knob is the one exception:
-an unreachable Home Assistant fails only after a long timeout, and volume
-steps arriving a minute late are worse than a knob that does nothing. Setting the remote host to nil is
+an unreachable Home Assistant fails only after a timeout, and volume
+steps arriving late are worse than a knob that does nothing. Atrium caps each
+call at five seconds for the same reason. Setting the remote host to nil is
 supported and documented, and the backlight agent treats an unreachable Home
 Assistant as a reason to fall back to the clock rather than to leave the
 keyboard wrong.
