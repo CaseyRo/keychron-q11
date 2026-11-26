@@ -34,5 +34,5 @@ if [[ " $* " == *" --backlight "* ]]; then
 fi
 
 open -a Hammerspoon
-echo "→ grant Accessibility when prompted (look for the 'keychron-q11 armed' alert),"
+echo "→ grant Accessibility when prompted,"
 echo "  then bind your keys once in Keychron Launcher: docs/launcher-keymap.md"
