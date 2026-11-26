@@ -2,7 +2,6 @@
 # keychron-q11 installer — run on the Mac the keyboard is attached to.
 #
 #   ./install.sh              Hammerspoon router (M-keys, encoders, Spotify)
-#   ./install.sh --backlight  also install the day/night backlight agent
 #   ./install.sh --nowplaying also publish the office's music as Now Playing
 #
 set -euo pipefail
@@ -36,9 +35,7 @@ if [[ " $* " == *" --nowplaying "* ]]; then
 fi
 
 if [[ " $* " == *" --backlight "* ]]; then
-  agent backlight "the backlight agent"
-  echo "✓ backlight agent loaded (polls every 10 min; follows Home Assistant"
-  echo "  house mode if configured, else the clock — see backlight/keylight.py)"
+  echo "--backlight is gone: Atrium sets the backlight now (~/dev/atrium, HouseLight.swift)." >&2
 fi
 
 open -a Hammerspoon
