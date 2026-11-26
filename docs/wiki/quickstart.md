@@ -3,7 +3,7 @@
 Host side control for a Keychron Q11 Ultra 8K on macOS. The keyboard sends
 plain F13 to F20 signals, bound once in Keychron Launcher. On the Mac,
 Atrium (`~/dev/atrium`) handles M1–M5, both knobs, the polling rate, the
-backlight following the house, the office music as Now Playing, the trackpad gestures, copy on select in Herdr and its theme. Hammerspoon keeps only the Storykeep meeting watcher until it retires (COS-311).
+backlight following the house, the office music as Now Playing, copy on select in Herdr and its theme. Hammerspoon keeps only the Storykeep meeting watcher until it retires (COS-311).
 
 ## Shortest path
 
@@ -27,13 +27,13 @@ home for everything else.
 
 | Question | Answered in |
 | --- | --- |
-| What each key, knob and gesture does | control table in the [README](../../README.md) |
+| What each key and knob does | control table in the [README](../../README.md) |
 | Which keycode to bind on the board | [launcher-keymap](../launcher-keymap.md) |
 | Why a binding silently does nothing | four macOS traps in the [README](../../README.md) |
 | It worked yesterday and not today | troubleshooting in the [README](../../README.md) |
 | How the host talks to the keyboard over HID | [protocol](../protocol.md) |
 | Why the pieces are shaped the way they are | [architecture](architecture.md) |
-| What a specific binding actually does | Atrium's `Sources/Atrium/Keys.swift` for every key and knob, `PollingMenu.swift` for the polling rate, `Trackpad.swift` and `AtriumCore/Gestures.swift` for gestures |
+| What a specific binding actually does | Atrium's `Sources/Atrium/Keys.swift` for every key and knob, `PollingMenu.swift` for the polling rate |
 
 ## Two things worth knowing before you debug
 
