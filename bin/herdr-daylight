@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Pick the Herdr desktop theme from the HA house mode, reusing keylight.py's
-# HA_URL and keychain token. Hammerspoon runs this on a timer and on wake.
+# Pick the Herdr desktop theme from the HA house mode, reusing the HA_URL and
+# keychain token that Atrium and nowplaying.py read. Hammerspoon runs this on a timer and on wake.
 #   day               → drenched moss (cobalt-cdit-day)
 #   evening / night   → Cobalt        (cobalt-cdit-evening)
 #   morning / guest / away / HA unreachable → macOS appearance: light → moss, dark → Cobalt;

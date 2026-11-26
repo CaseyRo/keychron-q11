@@ -147,7 +147,7 @@ and a plain output report:
 - After sending `b3 06`, the interrupt endpoint is **silent** on all three.
 
 This is not a permissions problem and not Launcher interference. Both were
-ruled out: `keylight.py status` performs the same `dev.read()` on `0xff60` and
+ruled out: `keylight.py status` (since replaced by Atrium) performed the same `dev.read()` on `0xff60` and
 returns the current effect, with the Launcher closed and Input Monitoring
 granted. Reads work; the device simply does not reply to `b3 06`.
 

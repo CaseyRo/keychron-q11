@@ -2,14 +2,13 @@
 
 Host side control for a Keychron Q11 Ultra 8K on macOS. The keyboard sends
 plain F13 to F20 signals, bound once in Keychron Launcher. On the Mac,
-Atrium (`~/dev/atrium`) handles M1–M5 and the left knob, a Hammerspoon
-router handles the rest, and a launchd agent keeps the backlight following
-the house. The Hammerspoon half moves into Atrium piece by piece (COS-299).
+Atrium (`~/dev/atrium`) handles M1–M5, both knobs, the polling rate and the
+backlight following the house, and a Hammerspoon router handles the rest. The Hammerspoon half moves into Atrium piece by piece (COS-299).
 
 ## Shortest path
 
-1. `./install.sh`, adding `--backlight` if you also want the lighting agent
-   and `--nowplaying` for the office music one.
+1. `./install.sh`, adding `--nowplaying` if you also want the office music
+   agent.
    It symlinks `~/.hammerspoon` at this repo and opens Hammerspoon.
 2. Grant Accessibility when prompted. The alert "keychron-q11 armed" means the
    router loaded.

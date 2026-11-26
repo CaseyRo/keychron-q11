@@ -19,12 +19,45 @@ usage: uv run nowplaying.py            run until killed
 """
 
 import json
+import os
 import pathlib
+import subprocess
 import sys
 import urllib.request
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "backlight"))
-from keylight import conf, ha_token, ha_url  # noqa: E402
+# HA_URL and OFFICE_PLAYERS live in the conf file; the token lives in the login
+# keychain (`security add-generic-password -s keychron-q11-ha -a "$USER" -w`)
+# so no secret sits in a dotfile. Atrium reads the same two.
+CONF = pathlib.Path.home() / ".config/keychron-q11.env"
+HA_KEYCHAIN_SERVICE = "keychron-q11-ha"
+
+
+def conf(key: str) -> str | None:
+    try:
+        for line in CONF.read_text().splitlines():
+            name, _, value = line.partition("=")
+            if name.strip() == key:
+                return value.strip().strip("\"'") or None
+    except FileNotFoundError:
+        pass
+    return None
+
+
+def ha_url() -> str | None:
+    url = conf("HA_URL")
+    return url.rstrip("/") if url else None
+
+
+def ha_token() -> str | None:
+    # Env first so this stays testable over ssh, where the login keychain
+    # isn't reachable. The launchd agent runs in the GUI session, where it is.
+    if env := os.environ.get("HA_TOKEN"):
+        return env
+    out = subprocess.run(
+        ["security", "find-generic-password", "-s", HA_KEYCHAIN_SERVICE, "-w"],
+        capture_output=True, text=True,
+    )
+    return out.stdout.strip() or None
 
 POLL = 5  # seconds; polled, like everything else here that could be watched
 
