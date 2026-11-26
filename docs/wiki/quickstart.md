@@ -1,9 +1,10 @@
 # keychron-q11
 
 Host side control for a Keychron Q11 Ultra 8K on macOS. The keyboard sends
-plain F13 to F20 signals, bound once in Keychron Launcher. A Hammerspoon
-router on the Mac decides what those signals mean per context, and a launchd
-agent keeps the backlight following the house.
+plain F13 to F20 signals, bound once in Keychron Launcher. On the Mac,
+Atrium (`~/dev/atrium`) handles M1–M5 and the left knob, a Hammerspoon
+router handles the rest, and a launchd agent keeps the backlight following
+the house. The Hammerspoon half moves into Atrium piece by piece (COS-299).
 
 ## Shortest path
 
@@ -14,6 +15,9 @@ agent keeps the backlight following the house.
    router loaded.
 3. Bind the keys once in Keychron Launcher, following
    [launcher-keymap](../launcher-keymap.md).
+4. For M1–M5 and the left knob, build and start Atrium:
+   `~/dev/atrium/scripts/build.sh` (its README, Building), then grant it
+   Accessibility.
 
 Step 3 is the only click through in the project. Everything after it is code
 here, and editing `hammerspoon/init.lua` reloads the live router, because
@@ -33,7 +37,7 @@ home for everything else.
 | It worked yesterday and not today | troubleshooting in the [README](../../README.md) |
 | How the host talks to the keyboard over HID | [protocol](../protocol.md) |
 | Why the pieces are shaped the way they are | [architecture](architecture.md) |
-| What a specific binding actually does | `hammerspoon/init.lua` |
+| What a specific binding actually does | `hammerspoon/init.lua`; M1–M5 and the left knob in Atrium's `Sources/Atrium/Keys.swift` |
 
 ## Two things worth knowing before you debug
 
@@ -42,7 +46,7 @@ control that works everywhere except inside the terminal is an ssh problem,
 and a dead right knob is a Home Assistant problem; neither is a keyboard
 problem. See [architecture](architecture.md).
 
-Most bindings go through `hs.hotkey.bind`, but M2 and M3 go through an event
+Most bindings are registered hotkeys, but M2 and M3 go through Atrium's event
 tap, because macOS claims those two keys first. The two mechanisms fail
 independently, so "encoder fine, M keys dead" is a real and useful signal.
 
