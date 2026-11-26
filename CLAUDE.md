@@ -3,10 +3,11 @@
 Host side control for a Keychron Q11 Ultra 8K on macOS.
 
 It is moving into Atrium (`~/dev/atrium`), one native app, piece by piece (COS-299).
-M1–M5, both knobs, the right knob's bezel, the polling-rate menubar and the
-backlight already live there (`Sources/Atrium/Keys.swift`, `OfficeMusic.swift`,
-`Bezel.swift`, `PollingMenu.swift` and `HouseLight.swift` over `Q11HID.swift`); the rest of
-this repo still runs until it moves too.
+M1–M5, both knobs, the bezel, the polling-rate menubar, the backlight and the
+trackpad gestures with the stage picker already live there
+(`Sources/Atrium/Keys.swift`, `OfficeMusic.swift`, `Bezel.swift`, `PollingMenu.swift`
+and `HouseLight.swift` over `Q11HID.swift`, `Trackpad.swift`); the rest of this
+repo (copy on select, the Herdr theme, Now Playing) still runs until it moves too.
 
 ## Read the wiki before exploring source
 
@@ -35,9 +36,8 @@ consequences worth knowing before you edit:
 - Do not kill a hung `hs -c` and carry on: the dead client leaves the port
   broken until the next reload. `pkill -f '^hs -c'`, then
   `touch hammerspoon/init.lua` and wait again.
-- To exercise the router without a trackpad, call its globals:
-  `q11ShowStages`, `q11ShowBezel`. Every key is Atrium's now: grep `keys:`
-  and `music:` in `~/Library/Logs/Atrium.log`.
+- Every key, the bezel and the gestures are Atrium's now: grep `keys:`,
+  `music:` and `trackpad:` in `~/Library/Logs/Atrium.log`.
 
 Check a live router with `hs -c`, which the config deliberately exposes:
 
@@ -50,8 +50,7 @@ hs -c 'return hs.accessibilityState()'
 
 ```bash
 uv run nowplaying/nowplaying.py selftest # Home Assistant answer parsing
-hs -c 'return q11SwipeSelfTest()'        # swipe, tap and scroll swallow
-(cd ~/dev/atrium && swift test)          # pane ring, office music, polling, backlight, in Atrium
+(cd ~/dev/atrium && swift test)          # pane ring, office music, polling, backlight, gestures, in Atrium
 ```
 
 There is no build. These are the gate.
@@ -71,7 +70,7 @@ holds the same interface and steals replies, which is why reads retry.
 
 | Path | What it is |
 | --- | --- |
-| `hammerspoon/init.lua` | the router's rest: gestures, stage picker, copy on select |
+| `hammerspoon/init.lua` | the router's rest: copy on select in Herdr, the Herdr theme |
 | `backlight/sniff-helper.js` | DevTools capture for the Launcher's HID traffic (the HID client is Atrium's) |
 | `nowplaying/nowplaying.py` | launchd agent: office music as macOS Now Playing |
 | `bin/q11-herdr` | runs on the remote host, not this one |

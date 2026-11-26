@@ -8,8 +8,8 @@ shape.
 
 A keypress takes one of four routes:
 
-- **Local.** Tabs, rcmd's Exposé, scrolling and trackpad gestures. Nothing
-  leaves the machine.
+- **Local.** Tabs, rcmd's Exposé, scrolling and trackpad gestures (all in
+  Atrium; gestures since 26 Nov 2026, COS-308). Nothing leaves the machine.
 - **Remote.** Workspace and split navigation, carried to the herdr host over
   one multiplexed ssh connection. Atrium runs this route since 25 Nov 2026
   (COS-299); the reasoning on this page still holds for it.
@@ -48,10 +48,11 @@ panel of large square panes, each a picture over a label, one line of detail
 beneath. The stage picker is the reason. A stage is a set of apps, and the
 fastest way to tell two apps apart is their icons at a size where they can be
 recognised, which a list row has no room for. Once that form existed, the
-volume step, the play state and the startup notice became one-pane cases of
-it, and the router stopped having three unrelated looks. Atrium carries the
-same form as one reusable piece (`Bezel.swift`), so the stage picker moves
-into it rather than growing a second look.
+volume step and the play state became one-pane cases of it, and the router
+stopped having unrelated looks. Atrium carries the same form as one reusable
+piece (`Bezel.swift`), with the stage picker in it as the one form that waits
+for a pick; Hammerspoon draws nothing any more, so its startup notice went
+with the move (COS-308).
 
 ## The ssh master is load bearing, not an optimisation
 
