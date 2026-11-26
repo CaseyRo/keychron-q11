@@ -36,7 +36,7 @@ home for everything else.
 | It worked yesterday and not today | troubleshooting in the [README](../../README.md) |
 | How the host talks to the keyboard over HID | [protocol](../protocol.md) |
 | Why the pieces are shaped the way they are | [architecture](architecture.md) |
-| What a specific binding actually does | Atrium's `Sources/Atrium/Keys.swift` for every key and knob, `PollingMenu.swift` for the polling rate; `hammerspoon/init.lua` for gestures |
+| What a specific binding actually does | Atrium's `Sources/Atrium/Keys.swift` for every key and knob, `PollingMenu.swift` for the polling rate, `Trackpad.swift` and `AtriumCore/Gestures.swift` for gestures |
 
 ## Two things worth knowing before you debug
 
