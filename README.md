@@ -11,8 +11,8 @@ series, captured on the wire and checked against Keychron's own source
 Q11 Ultra ──USB/2.4G──▶ Atrium + Hammerspoon ─┬─▶ Spaces / splits / scroll    local
                                               ├─▶ ssh ─▶ herdr host    terminal only
                                               └─▶ Home Assistant       right knob only
-                        Atrium ─────────────────▶ backlight follows HA house mode
-                        nowplaying.py (launchd) ─▶ office music as macOS Now Playing
+                        Atrium ─────────────────▶ backlight follows HA house mode,
+                                                  office music as macOS Now Playing
 ```
 
 That split is the first thing to check when something feels broken: the
@@ -26,7 +26,8 @@ Hammerspoon; the right knob and its bezel followed on 26 Nov 2026
 (`OfficeMusic.swift`, `Bezel.swift`), so Hammerspoon holds no hotkeys any
 more, and the polling-rate menubar the same day (`PollingMenu.swift`), the
 backlight (`HouseLight.swift`) and the trackpad gestures with the stage picker
-(`Trackpad.swift`). Hammerspoon keeps copy on select and the Herdr theme; the
+(`Trackpad.swift`), then Now Playing (`NowPlaying.swift`, replacing
+`nowplaying.py` and its launchd agent). Hammerspoon keeps copy on select and the Herdr theme; the
 rest follows piece by piece.
 
 Install steps and the reasoning behind the design are in
@@ -48,7 +49,7 @@ Install steps and the reasoning behind the design are in
 | 4-finger tap | anywhere | pick a stage from a bezel of all of them, each shown by its apps (←/→ or tab, its letter, return or a click, escape). In Atrium |
 | ⌘ + 4-finger swipe ←/→ | anywhere | place window left / right half. In Atrium |
 | ⌘ + 4-finger swipe ↑/↓ | anywhere | maximize / centre window. In Atrium |
-| Now Playing | office music playing or paused | the office's title and artist are this Mac's Now Playing, so Top Shelf's music widget, Control Center and the play key show and play/pause it (`./install.sh --nowplaying`) |
+| Now Playing | office music playing or paused | the office's title and artist are this Mac's Now Playing, so Top Shelf's music widget, Control Center and the play key show and play/pause it, artwork included. In Atrium |
 | backlight | house mode `day`/`away` | off; restored on every other mode, the clock deciding when HA does not answer (1 min poll). In Atrium |
 | Herdr theme | house mode `day`/`away` · `evening` · `night` | light · medium · dark Cobalt×CDiT; other modes follow macOS (`bin/herdr-daylight`, 5 min + wake) |
 | mouse select in Herdr | Herdr | copies the selection, like Warp |
@@ -182,7 +183,7 @@ No conf file or no token → it falls back to the clock (off from 8:00 to
 
 ### Office music (optional)
 
-The right knob and the Now Playing agent use the same URL and token, plus
+The right knob and Now Playing in Atrium use the same URL and token, plus
 two more lines in `~/.config/keychron-q11.env` naming your players:
 
 ```bash
@@ -190,18 +191,17 @@ OFFICE_PLAYERS=media_player.one,media_player.two   # whichever plays gets the kn
 OFFICE_AMP=media_player.amplifier                  # volume target when none does
 ```
 
-Without them the knob does nothing and the agent exits. While the agent
+Without them the knob and Now Playing do nothing. While Atrium
 holds Now Playing, the keyboard's play key pauses the office, not the Mac,
 until something on the Mac starts playing.
 
 ## Install
 
-Requires macOS, [Homebrew](https://brew.sh), and for the Now Playing agent
-[uv](https://docs.astral.sh/uv/) (`brew install uv`).
+Requires macOS and [Homebrew](https://brew.sh).
 
 ```bash
 git clone https://github.com/CaseyRo/keychron-q11 ~/dev/keychron-q11
-~/dev/keychron-q11/install.sh --nowplaying   # omit --nowplaying to skip the agent
+~/dev/keychron-q11/install.sh   # also unloads the old Now Playing agent, if it is there
 ```
 
 Grant Hammerspoon **Accessibility** when prompted (the event tap needs

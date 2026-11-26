@@ -4,10 +4,10 @@ Host side control for a Keychron Q11 Ultra 8K on macOS.
 
 It is moving into Atrium (`~/dev/atrium`), one native app, piece by piece (COS-299).
 M1–M5, both knobs, the bezel, the polling-rate menubar, the backlight and the
-trackpad gestures with the stage picker already live there
+trackpad gestures with the stage picker and Now Playing already live there
 (`Sources/Atrium/Keys.swift`, `OfficeMusic.swift`, `Bezel.swift`, `PollingMenu.swift`
-and `HouseLight.swift` over `Q11HID.swift`, `Trackpad.swift`); the rest of this
-repo (copy on select, the Herdr theme, Now Playing) still runs until it moves too.
+and `HouseLight.swift` over `Q11HID.swift`, `Trackpad.swift`, `NowPlaying.swift`);
+the rest of this repo (copy on select, the Herdr theme) still runs until it moves too.
 
 ## Read the wiki before exploring source
 
@@ -49,8 +49,7 @@ hs -c 'return hs.accessibilityState()'
 ## Run the self checks before committing
 
 ```bash
-uv run nowplaying/nowplaying.py selftest # Home Assistant answer parsing
-(cd ~/dev/atrium && swift test)          # pane ring, office music, polling, backlight, gestures, in Atrium
+(cd ~/dev/atrium && swift test)   # pane ring, office music, Now Playing, polling, backlight, gestures, in Atrium
 ```
 
 There is no build. These are the gate.
@@ -72,6 +71,5 @@ holds the same interface and steals replies, which is why reads retry.
 | --- | --- |
 | `hammerspoon/init.lua` | the router's rest: copy on select in Herdr, the Herdr theme |
 | `backlight/sniff-helper.js` | DevTools capture for the Launcher's HID traffic (the HID client is Atrium's) |
-| `nowplaying/nowplaying.py` | launchd agent: office music as macOS Now Playing |
 | `bin/q11-herdr` | runs on the remote host, not this one |
 | `docs/` | protocol notes, keymap, wiki |
