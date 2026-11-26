@@ -11,7 +11,7 @@ series, captured on the wire and checked against Keychron's own source
 Q11 Ultra ──USB/2.4G──▶ Atrium + Hammerspoon ─┬─▶ Spaces / splits / scroll    local
                                               ├─▶ ssh ─▶ herdr host    terminal only
                                               └─▶ Home Assistant       right knob only
-                        keylight.py (launchd) ──▶ backlight follows HA house mode
+                        Atrium ─────────────────▶ backlight follows HA house mode
                         nowplaying.py (launchd) ─▶ office music as macOS Now Playing
 ```
 
@@ -46,7 +46,7 @@ Install steps and the reasoning behind the design are in
 | ⌘ + 4-finger swipe ←/→ | anywhere | place window left / right half |
 | ⌘ + 4-finger swipe ↑/↓ | anywhere | maximize / centre window |
 | Now Playing | office music playing or paused | the office's title and artist are this Mac's Now Playing, so Top Shelf's music widget, Control Center and the play key show and play/pause it (`./install.sh --nowplaying`) |
-| backlight | house mode `day`/`away` | off; restored on every other mode (launchd, 10 min poll) |
+| backlight | house mode `day`/`away` | off; restored on every other mode, the clock deciding when HA does not answer (1 min poll). In Atrium |
 | Herdr theme | house mode `day`/`away` · `evening` · `night` | light · medium · dark Cobalt×CDiT; other modes follow macOS (`bin/herdr-daylight`, 5 min + wake) |
 | mouse select in Herdr | Herdr | copies the selection, like Warp |
 | bolt menubar item | anywhere | shows the 2.4G polling rate; its menu sets either transport, 125–8000 Hz, over IOKit HID. In Atrium |
@@ -149,23 +149,20 @@ Full notes, captured with a 30-line DevTools monkey-patch:
 [docs/protocol.md](docs/protocol.md) · capture tool:
 [backlight/sniff-helper.js](backlight/sniff-helper.js)
 
-`backlight/keylight.py` uses it for the day/night backlight — it
-remembers your current effect before switching off and restores it after:
+Atrium uses it for the day/night backlight (`~/dev/atrium`,
+`HouseLight.swift`, since 26 Nov 2026, COS-307). It remembers your current
+effect before switching off and restores it after.
 
-```bash
-uv run backlight/keylight.py on|off|auto|status|selftest
-```
-
-The agent runs `auto` on a 10-minute poll rather than at two fixed times,
-because a keyboard that reconnects or re-pairs mid-window comes back with
-its own saved effect — a schedule leaves that wrong until the next flip.
-`auto` is a no-op when the effect already matches, so polling costs nothing
-and never re-writes the keyboard's flash.
+It polls every minute rather than switching at two fixed times, because a
+keyboard that reconnects or re-pairs mid-window comes back with its own
+saved effect — a schedule leaves that wrong until the next flip. A poll is a
+no-op when the effect already matches, so polling costs nothing and never
+re-writes the keyboard's flash.
 
 ### Home Assistant house mode (optional)
 
-`auto` prefers an HA `input_select.house_mode` over the clock: modes `day`
-and `away` go dark, every other mode (`morning`, `evening`, `night`,
+The backlight prefers an HA `input_select.house_mode` over the clock: modes
+`day` and `away` go dark, every other mode (`morning`, `evening`, `night`,
 `guest`, `custom`) lights up. Point it at your instance and stash a
 long-lived token in the login keychain:
 
@@ -174,8 +171,8 @@ mkdir -p ~/.config && echo 'HA_URL=http://homeassistant.local:8123' > ~/.config/
 security add-generic-password -s keychron-q11-ha -a "$USER" -w   # prompts, no shell history
 ```
 
-No conf file or no token → it silently falls back to the `DAY_STARTS`/
-`DAY_ENDS` clock, same as before. Same for HA being down or off-network.
+No conf file or no token → it falls back to the clock (off from 8:00 to
+18:00). Same for HA being down or off-network.
 
 ### Office music (optional)
 
@@ -193,12 +190,12 @@ until something on the Mac starts playing.
 
 ## Install
 
-Requires macOS, [Homebrew](https://brew.sh), and for the backlight
+Requires macOS, [Homebrew](https://brew.sh), and for the Now Playing agent
 [uv](https://docs.astral.sh/uv/) (`brew install uv`).
 
 ```bash
 git clone https://github.com/CaseyRo/keychron-q11 ~/dev/keychron-q11
-~/dev/keychron-q11/install.sh --backlight   # omit --backlight to skip the agent
+~/dev/keychron-q11/install.sh --nowplaying   # omit --nowplaying to skip the agent
 ```
 
 Grant Hammerspoon **Accessibility** when prompted (the event tap needs
@@ -317,8 +314,8 @@ Everything is a constant near the top of a small file:
   while frontmost. Ships with Factorio and Steam; find an app's ID with
   `osascript -e 'id of app "Name"'` — a game launched through Steam needs
   its own entry
-- `backlight/keylight.py` — which house modes go dark, clock fallback hours,
-  fallback effect
+- `~/dev/atrium/Sources/AtriumCore/Backlight.swift` — which house modes go
+  dark, clock fallback hours, fallback effect
 
 ## License
 

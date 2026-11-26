@@ -15,9 +15,9 @@ A keypress takes one of four routes:
   (COS-299); the reasoning on this page still holds for it.
 - **House.** The right knob, as HTTP calls to Home Assistant for the office's
   music. Atrium runs this route too since 26 Nov 2026 (COS-305).
-- **Background.** Two launchd agents: one polling every ten minutes and
-  speaking HID to the keyboard to set the backlight, one holding the Mac's Now
-  Playing entry for the office's music.
+- **Background.** The backlight, polled every minute from Home Assistant's
+  house mode and set over HID (Atrium since 26 Nov 2026, COS-307), and a
+  launchd agent holding the Mac's Now Playing entry for the office's music.
 
 Only the two middle paths leave the machine, and that is the useful part. A
 control that works everywhere except inside the terminal is an ssh fault, not
@@ -103,8 +103,8 @@ Each HID command has one writer, so report framing lives in one place per
 command. When the polling rate moved to Atrium (COS-306) it left
 `keylight.py` rather than being written twice: Lua had no hidapi, which is why
 the menubar used to shell out to `keylight.py`, and Atrium speaks IOKit HID
-natively (`Q11HID.swift`). The backlight follows it into the same client
-next, after which `keylight.py` has no HID left.
+natively (`Q11HID.swift`). The backlight followed it into the same client
+(COS-307), and `keylight.py` is gone.
 The same reasoning puts the trackpad and window actions behind the `rcmd`
 binary rather than reimplementing them.
 
@@ -119,7 +119,7 @@ plain keystrokes instead of dead keys. The right knob is the one exception:
 an unreachable Home Assistant fails only after a timeout, and volume
 steps arriving late are worse than a knob that does nothing. Atrium caps each
 call at five seconds for the same reason. Setting the remote host to nil is
-supported and documented, and the backlight agent treats an unreachable Home
+supported and documented, and the backlight treats an unreachable Home
 Assistant as a reason to fall back to the clock rather than to leave the
 keyboard wrong.
 
