@@ -11,8 +11,7 @@ the house. The Hammerspoon half moves into Atrium piece by piece (COS-299).
 1. `./install.sh`, adding `--backlight` if you also want the lighting agent
    and `--nowplaying` for the office music one.
    It symlinks `~/.hammerspoon` at this repo and opens Hammerspoon.
-2. Grant Accessibility when prompted. The alert "keychron-q11 armed" means the
-   router loaded.
+2. Grant Accessibility when prompted.
 3. Bind the keys once in Keychron Launcher, following
    [launcher-keymap](../launcher-keymap.md).
 4. For M1–M5 and the left knob, build and start Atrium:

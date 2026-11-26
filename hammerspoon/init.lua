@@ -44,8 +44,8 @@ local MUTE_APPS = {
 -- job is the same (pick a thing by looking at it, from the keyboard) and
 -- because a stage is best named by the apps in it, which is what the panes
 -- have room to show. Atrium's Bezel.swift is its port and draws the right
--- knob's notices; this one stays for the stage picker and the armed notice
--- until COS-308 moves them. Colours are Herdr's Cobalt×CDiT theme
+-- knob's notices; this one stays for the stage picker
+-- until COS-308 moves it. Colours are Herdr's Cobalt×CDiT theme
 -- (~/.config/herdr-app/themes/cobalt-cdit-evening.json), copied, not read at
 -- load: a missing theme file must not take the picker down.
 -- shortcut: evening only, the day (moss) theme is not followed; read the
@@ -165,27 +165,6 @@ local function bezel(panes, linger)
     if p.key then keys:bind({}, p.key, function() pick(i) end) end
   end
   keys:enter()
-end
-
--- The board itself, drawn: two halves, a knob at each outer top corner. The
--- one picture that says which keyboard armed.
-local function q11Art(x, y, w)
-  local els, cx, top = {}, x + w / 2, y + 44
-  for side = -1, 1, 2 do
-    local hx = cx + (side == -1 and -66 or 6)
-    els[#els + 1] = { type = "rectangle", action = "stroke", strokeColor = FG, strokeWidth = 2.5,
-      frame = { x = hx, y = top, w = 60, h = 44 }, roundedRectRadii = { xRadius = 7, yRadius = 7 } }
-    for row = 0, 1 do
-      for col = 0, 2 do
-        els[#els + 1] = { type = "rectangle", action = "fill", fillColor = FG,
-          frame = { x = hx + 9 + col * 15, y = top + 18 + row * 11, w = 11, h = 7 },
-          roundedRectRadii = { xRadius = 2, yRadius = 2 } }
-      end
-    end
-    els[#els + 1] = { type = "circle", action = "fill", fillColor = YELLOW, radius = 4.5,
-      center = { x = hx + (side == -1 and 13 or 47), y = top + 9 } }
-  end
-  return els
 end
 
 -- Muting is a flag the gesture callback reads, not a tap that gets stopped:
@@ -634,7 +613,6 @@ q11Health = hs.timer.doEvery(30, function()
   end
 end)
 
-bezel({ { label = "keychron-q11 armed", art = q11Art } }, 1.6)
 q11ShowBezel = bezel -- global for `hs -c`, to look at a bezel without a trackpad
 -- Storykeep's meeting watcher lives in casey-claude-setup, which no other
 -- host that runs this router has. Guarded so a missing repo costs a console
