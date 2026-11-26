@@ -16,8 +16,9 @@ A keypress takes one of four routes:
 - **House.** The right knob, as HTTP calls to Home Assistant for the office's
   music. Atrium runs this route too since 26 Nov 2026 (COS-305).
 - **Background.** The backlight, polled every minute from Home Assistant's
-  house mode and set over HID (Atrium since 26 Nov 2026, COS-307), and a
-  launchd agent holding the Mac's Now Playing entry for the office's music.
+  house mode and set over HID (Atrium since 26 Nov 2026, COS-307), and the
+  Mac's Now Playing entry for the office's music, polled every 5 s (Atrium
+  since 26 Nov 2026, COS-309; a launchd agent before).
 
 Only the two middle paths leave the machine, and that is the useful part. A
 control that works everywhere except inside the terminal is an ssh fault, not
@@ -29,8 +30,8 @@ The knob does not name a player. It asks Home Assistant which office player
 is playing on each use, because the room has several and the one that plays
 changes; the house already knows, and a name fixed here would be a second
 copy of that knowledge going stale. The list of candidates is in the conf
-file, not in the code, for the same reason: the knob and the Now Playing
-agent both read it, and entity IDs describe a house, not this repo.
+file, not in the code, for the same reason: the knob and Now Playing
+both read it, and entity IDs describe a house, not this repo.
 
 Now Playing is the one door into other software that needs no cooperation
 from it. Bartender's Top Shelf has no status of its own to write to, but it
