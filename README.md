@@ -27,8 +27,8 @@ Hammerspoon; the right knob and its bezel followed on 26 Nov 2026
 more, and the polling-rate menubar the same day (`PollingMenu.swift`), the
 backlight (`HouseLight.swift`) and the trackpad gestures with the stage picker
 (`Trackpad.swift`), then Now Playing (`NowPlaying.swift`, replacing
-`nowplaying.py` and its launchd agent). Hammerspoon keeps copy on select and the Herdr theme; the
-rest follows piece by piece.
+`nowplaying.py` and its launchd agent), then copy on select in Herdr and its theme (`HerdrDesk.swift`,
+replacing `bin/herdr-daylight`). Hammerspoon keeps only the Storykeep meeting watcher until it retires (COS-311).
 
 Install steps and the reasoning behind the design are in
 [docs/wiki/quickstart.md](docs/wiki/quickstart.md).
@@ -51,8 +51,8 @@ Install steps and the reasoning behind the design are in
 | ⌘ + 4-finger swipe ↑/↓ | anywhere | maximize / centre window. In Atrium |
 | Now Playing | office music playing or paused | the office's title and artist are this Mac's Now Playing, so Top Shelf's music widget, Control Center and the play key show and play/pause it, artwork included. In Atrium |
 | backlight | house mode `day`/`away` | off; restored on every other mode, the clock deciding when HA does not answer (1 min poll). In Atrium |
-| Herdr theme | house mode `day`/`away` · `evening` · `night` | light · medium · dark Cobalt×CDiT; other modes follow macOS (`bin/herdr-daylight`, 5 min + wake) |
-| mouse select in Herdr | Herdr | copies the selection, like Warp |
+| Herdr theme | house mode `day` · `evening`/`night` | drenched moss · Cobalt (CDiT); other modes and no HA follow macOS, light → moss, dark → Cobalt (5 min + wake). In Atrium |
+| mouse select in Herdr | Herdr | copies the selection, like Warp. In Atrium |
 | bolt menubar item | anywhere | shows the 2.4G polling rate; its menu sets either transport, 125–8000 Hz, over IOKit HID. In Atrium |
 
 Workspace navigation speaks to **herdr** (a terminal workspace manager)

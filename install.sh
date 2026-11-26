@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # keychron-q11 installer — run on the Mac the keyboard is attached to.
 #
-#   ./install.sh              Hammerspoon router (copy on select, the Herdr theme)
+#   ./install.sh              Hammerspoon (the Storykeep meeting watcher, until COS-311)
 #
 set -euo pipefail
 cd "$(dirname "$0")"
