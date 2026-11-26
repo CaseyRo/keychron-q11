@@ -37,7 +37,7 @@ home for everything else.
 | It worked yesterday and not today | troubleshooting in the [README](../../README.md) |
 | How the host talks to the keyboard over HID | [protocol](../protocol.md) |
 | Why the pieces are shaped the way they are | [architecture](architecture.md) |
-| What a specific binding actually does | `hammerspoon/init.lua`; M1–M5 and the left knob in Atrium's `Sources/Atrium/Keys.swift` |
+| What a specific binding actually does | Atrium's `Sources/Atrium/Keys.swift` for every key and knob; `hammerspoon/init.lua` for gestures and the menubar |
 
 ## Two things worth knowing before you debug
 

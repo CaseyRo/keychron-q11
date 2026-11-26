@@ -45,7 +45,7 @@ equivalent if your Launcher rejects `LCAG`. Swap ccw/cw to taste — the
 host side doesn't care which physical direction sends which code.)
 
 The right-knob rows are the host side's contract, not a read of the board:
-Hammerspoon listens for them today, and a knob that has not been flashed
+Atrium listens for them since 26 Nov 2026, and a knob that has not been flashed
 still sends its shipped arrow keys.
 
 ## Scroll layer (e.g. your fn layer) — right knob
@@ -54,10 +54,10 @@ still sends its shipped arrow keys.
 | ---------------- | ---------------- | ------------------------------- |
 | Right knob ccw   | `KC_WH_U`        | scroll up under the pointer     |
 | Right knob cw    | `KC_WH_D`        | scroll down under the pointer   |
-| Right knob press | `LCAG(KC_F16)`   | jump to bottom (host-side)      |
+| Right knob press | `LCAG(KC_F16)`   | jump to bottom (Atrium)         |
 
 Scrolling is **pure keyboard** — `KC_WH_U`/`KC_WH_D` need no host code at
-all, so they keep working even if Hammerspoon is down. Host-side
+all, so they keep working even if Atrium is down. Host-side
 `LCAG(KC_F14)`/`LCAG(KC_F15)` wheel emulation used to exist as a fallback
 for Launchers without wheel keycodes; it was removed as dead weight. If
 yours can't emit them, bind the F-keys and restore those two hotkeys from

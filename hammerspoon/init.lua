@@ -10,7 +10,9 @@ require("hs.ipc") -- `hs -c "..."` introspection; first, so a later throw is dia
 
 -- ── config ──────────────────────────────────────────────────────────────
 -- M1–M5 and the left knob (F13–F20) moved to Atrium (~/dev/atrium, Keys.swift)
--- on 25 Nov 2026, COS-299; this file keeps the rest until it moves too.
+-- on 25 Nov 2026, COS-299; the right knob, its ⌘⌃⌥ keys and the office music
+-- followed on 26 Nov 2026, COS-305 (OfficeMusic.swift, Bezel.swift). This file
+-- keeps the rest, and no hotkeys, until it moves too.
 -- Herdr desktop, for copy on select below.
 local HERDR_APP_ID = "dev.herdr.app"
 local HERDR_APP = os.getenv("HOME") .. "/.local/bin/herdr-app"
@@ -36,12 +38,14 @@ local MUTE_APPS = {
 -- ────────────────────────────────────────────────────────────────────────
 
 -- ── look ────────────────────────────────────────────────────────────────
--- Everything this file draws is one thing: a bezel after Quicksilver's — a
+-- Everything this file draws is one thing: a bezel after Quicksilver's, a
 -- translucent rounded panel of large square panes, each a big picture over a
 -- centred label, with one line of detail underneath. Quicksilver's because the
 -- job is the same (pick a thing by looking at it, from the keyboard) and
 -- because a stage is best named by the apps in it, which is what the panes
--- have room to show. Colours are Herdr's Cobalt×CDiT theme
+-- have room to show. Atrium's Bezel.swift is its port and draws the right
+-- knob's notices; this one stays for the stage picker and the armed notice
+-- until COS-308 moves them. Colours are Herdr's Cobalt×CDiT theme
 -- (~/.config/herdr-app/themes/cobalt-cdit-evening.json), copied, not read at
 -- load: a missing theme file must not take the picker down.
 -- shortcut: evening only, the day (moss) theme is not followed; read the
@@ -163,47 +167,6 @@ local function bezel(panes, linger)
   keys:enter()
 end
 
--- The old Mac volume bezel: a speaker over a row of sixteen blocks.
-local function volumeArt(level)
-  return function(x, y, w)
-    local cx, els = x + w / 2 - 8, {}
-    els[#els + 1] = { type = "segments", closed = true, action = "fill", fillColor = FG,
-      coordinates = {
-        { x = cx - 24, y = y + 44 }, { x = cx - 10, y = y + 44 }, { x = cx + 6, y = y + 30 },
-        { x = cx + 6, y = y + 82 }, { x = cx - 10, y = y + 68 }, { x = cx - 24, y = y + 68 },
-      } }
-    for i, r in ipairs({ 14, 26 }) do
-      els[#els + 1] = { type = "arc", action = "stroke", strokeWidth = 3.5,
-        strokeCapStyle = "round", arcRadii = false,
-        center = { x = cx + 8, y = y + 56 }, radius = r, startAngle = 50, endAngle = 130,
-        strokeColor = level * 2 >= i and FG or { white = 1, alpha = 0.2 } }
-    end
-    local bw, gap = 7, 2.6
-    local x0 = x + (w - (16 * bw + 15 * gap)) / 2
-    for i = 1, 16 do
-      els[#els + 1] = { type = "rectangle", action = "fill",
-        fillColor = i <= math.floor(level * 16 + 0.5) and FG or { white = 1, alpha = 0.18 },
-        frame = { x = x0 + (i - 1) * (bw + gap), y = y + 102, w = bw, h = 10 },
-        roundedRectRadii = { xRadius = 1.5, yRadius = 1.5 } }
-    end
-    return els
-  end
-end
-local function pauseArt(x, y, w)
-  local els = {}
-  for _, dx in ipairs({ -26, 6 }) do
-    els[#els + 1] = { type = "rectangle", action = "fill", fillColor = FG,
-      frame = { x = x + w / 2 + dx, y = y + 32, w = 20, h = 64 },
-      roundedRectRadii = { xRadius = 4, yRadius = 4 } }
-  end
-  return els
-end
-local function playArt(x, y, w)
-  local cx = x + w / 2
-  return { { type = "segments", closed = true, action = "fill", fillColor = FG,
-    coordinates = { { x = cx - 20, y = y + 30 }, { x = cx + 32, y = y + 64 }, { x = cx - 20, y = y + 98 } } } }
-end
-
 -- The board itself, drawn: two halves, a knob at each outer top corner. The
 -- one picture that says which keyboard armed.
 local function q11Art(x, y, w)
@@ -236,153 +199,6 @@ q11Muted = muteApp(hs.application.frontmostApplication())
 q11AppWatcher = hs.application.watcher.new(function(_, event, app)
   if event == hs.application.watcher.activated then q11Muted = muteApp(app) end
 end):start()
-
--- The right encoder, base layer: the office's music, through Home Assistant.
--- Turn = volume, press = play/pause, double press = a three minute break that
--- ends by itself — the length of a radio commercial block. Pause or stop is
--- the player's call, not this file's: Music Assistant decides what pausing a
--- live stream means, so one media_play_pause serves radio and tracks alike.
--- Which player gets the command is asked of HA each time rather than fixed
--- here: the office has several (OFFICE_PLAYERS in the conf file), and the
--- knob should turn the one that is playing. With none of them playing the
--- turn goes to the amplifier — an Apple TV or a Spotify Connect session is
--- still loud — and the press goes to whichever player was last heard.
--- No local fallback, unlike the herdr path: an unreachable HA fails after a
--- long timeout, and a spin's worth of volume steps landing a minute late is
--- worse than a knob that does nothing. The keyboard's media keys cover the Mac.
--- F21-F24 don't exist on macOS and F13-F20 are spent bare, so the knob sends
--- hyper-modified F18-F20 (flashed 2026-11-06, see docs/launcher-keymap.md).
-local DOUBLE_PRESS = 0.3 -- seconds a single press waits to see a second one
-local BREAK = 180        -- seconds
-local PLAYER_TTL = 5     -- seconds one answer serves, so a spin asks HA once
-
--- Same sources as keylight.py: the conf file, and the token in the login
--- keychain. Read once at load; a reload picks up a change. The entity IDs live
--- in the conf file too because they describe a house, not this code, and
--- nowplaying.py reads the same list. Without them the knob does nothing.
-local function conf(key)
-  local f = io.open(os.getenv("HOME") .. "/.config/keychron-q11.env")
-  local value = f and ("\n" .. f:read("a")):match("\n" .. key .. "=[\"']?([^\"'\n]+)")
-  if f then f:close() end
-  return value
-end
-local haUrl = (conf("HA_URL") or ""):gsub("/+$", "")
-local haToken = hs.execute("/usr/bin/security find-generic-password -s keychron-q11-ha -w")
-  :gsub("%s+$", "")
-local OFFICE_PLAYERS = hs.fnutils.split(conf("OFFICE_PLAYERS") or "", ",")
-local OFFICE_AMP = conf("OFFICE_AMP")
-
-local function haPost(path, body, done)
-  if haUrl == "" or haToken == "" or not OFFICE_AMP then return end
-  hs.http.asyncPost(haUrl .. path, hs.json.encode(body),
-    { Authorization = "Bearer " .. haToken, ["Content-Type"] = "application/json" },
-    function(status, text)
-      q11MusicStatus = status -- `hs -c 'return q11MusicStatus'`
-      if done and status == 200 then done(text) end
-    end)
-end
-
--- The office player that is playing, or "" — HA filters the list, so this is
--- one round trip however many players there are.
-local PLAYING = "{{ expand(" .. hs.json.encode(OFFICE_PLAYERS)
-  .. ") | selectattr('state','eq','playing') | map(attribute='entity_id') | first | default('') }}"
-q11MusicPlayer = OFFICE_PLAYERS[1] -- last one heard playing; global for `hs -c`
-local playing, askedAt = "", -math.huge
-local function withPlaying(fn)
-  local now = hs.timer.secondsSinceEpoch()
-  if now - askedAt < PLAYER_TTL then return fn(playing) end
-  haPost("/api/template", { template = PLAYING }, function(id)
-    playing, askedAt = id, now
-    if id ~= "" then q11MusicPlayer = id end
-    fn(id)
-  end)
-end
-
-local function media(service, entity, done)
-  haPost("/api/services/media_player/" .. service, { entity_id = entity }, done)
-end
-
--- What a player is doing right now, for the bezel: its state, its level and
--- "title — artist". Read back from HA rather than assumed, because the step
--- size and what pause means for a stream are both the player's.
-local function playerNow(entity, fn)
-  hs.http.asyncGet(haUrl .. "/api/states/" .. entity,
-    { Authorization = "Bearer " .. haToken }, function(status, text)
-      local st = status == 200 and hs.json.decode(text) or {}
-      local a = st.attributes or {}
-      local title = a.media_title and (a.media_artist and a.media_artist ~= ""
-        and a.media_title .. " — " .. a.media_artist or a.media_title)
-      fn(st.state, a.volume_level, title or a.friendly_name)
-    end)
-end
-
-function q11Volume(service) -- global for `hs -c 'q11Volume("volume_up")'`
-  withPlaying(function(id)
-    local entity = id ~= "" and id or OFFICE_AMP
-    media(service, entity, function()
-      playerNow(entity, function(_, level, title)
-        if not level then return end
-        bezel({ { label = ("%d%%"):format(math.floor(level * 100 + 0.5)),
-          art = volumeArt(level), detail = title } }, 1.2)
-      end)
-    end)
-  end)
-end
-
--- Globals so the press logic is drivable from `hs -c 'q11MusicPress()'`.
--- shortcut: the break lives in this timer, so a router reload during one
--- leaves the music paused; move it to an HA script if that ever bites.
-q11MusicBreak = nil
-local pressTimer
-local function endBreak()
-  if not q11MusicBreak then return false end
-  q11MusicBreak:stop()
-  q11MusicBreak = nil
-  media("media_play", q11MusicPlayer)
-  bezel({ { label = "Music on", art = playArt } }, 1.4)
-  return true
-end
-function q11MusicPress()
-  if pressTimer then -- second press inside the window: the break
-    pressTimer:stop()
-    pressTimer = nil
-    if q11MusicBreak then q11MusicBreak:stop() end
-    q11MusicBreak = hs.timer.doAfter(BREAK, endBreak)
-    askedAt = -math.huge -- a stale answer here would pause the wrong player
-    withPlaying(function() media("media_pause", q11MusicPlayer) end)
-    bezel({ { label = "Back in 3 min", art = pauseArt } }, 1.8)
-    return
-  end
-  pressTimer = hs.timer.doAfter(DOUBLE_PRESS, function()
-    pressTimer = nil
-    -- a single press during a break ends it early rather than toggling
-    if endBreak() then return end
-    askedAt = -math.huge
-    withPlaying(function()
-      media("media_play_pause", q11MusicPlayer, function()
-        -- a beat, so HA has the new state before it is read back
-        hs.timer.doAfter(0.6, function()
-          playerNow(q11MusicPlayer, function(state, _, title)
-            local on = state == "playing"
-            bezel({ { label = on and "Playing" or "Paused",
-              art = on and playArt or pauseArt, detail = title } }, 1.4)
-          end)
-        end)
-      end)
-    end)
-  end)
-end
-
-local HYPER = { "cmd", "alt", "ctrl" }
-hs.hotkey.bind(HYPER, "f18", function() q11Volume("volume_down") end)
-hs.hotkey.bind(HYPER, "f19", function() q11Volume("volume_up") end)
-hs.hotkey.bind(HYPER, "f20", q11MusicPress)
-
--- Scroll up/down are pure keyboard (KC_WH_U/KC_WH_D). Jump-to-bottom has no
--- wheel keycode, so it stays here.
-hs.hotkey.bind(HYPER, "f16", function()
-  hs.eventtap.scrollWheel({ 0, -1000000 }, {}, "pixel")
-end)
 
 -- ── polling-rate menubar ────────────────────────────────────────────────
 -- The board keeps separate polling rates for cable and 2.4G and only the

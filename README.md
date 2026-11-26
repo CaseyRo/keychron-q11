@@ -8,9 +8,9 @@ series, captured on the wire and checked against Keychron's own source
 ([docs/protocol.md](docs/protocol.md)).
 
 ```
-Q11 Ultra ──USB/2.4G──▶ Hammerspoon router ─┬─▶ Spaces / splits / scroll    local
-                                            ├─▶ ssh ─▶ herdr host    terminal only
-                                            └─▶ Home Assistant       right knob only
+Q11 Ultra ──USB/2.4G──▶ Atrium + Hammerspoon ─┬─▶ Spaces / splits / scroll    local
+                                              ├─▶ ssh ─▶ herdr host    terminal only
+                                              └─▶ Home Assistant       right knob only
                         keylight.py (launchd) ──▶ backlight follows HA house mode
                         nowplaying.py (launchd) ─▶ office music as macOS Now Playing
 ```
@@ -22,7 +22,9 @@ so if the left encoder works everywhere
 
 **Moving into Atrium.** Since 25 Nov 2026, M1–M5 and the left knob run in
 [Atrium](../atrium) (`Sources/Atrium/Keys.swift`), a native app, instead of
-Hammerspoon. The rest follows piece by piece; until then both run.
+Hammerspoon; the right knob and its bezel followed on 26 Nov 2026
+(`OfficeMusic.swift`, `Bezel.swift`), so Hammerspoon holds no hotkeys any
+more. The rest follows piece by piece; until then both run.
 
 Install steps and the reasoning behind the design are in
 [docs/wiki/quickstart.md](docs/wiki/quickstart.md).
@@ -35,11 +37,11 @@ Install steps and the reasoning behind the design are in
 | left knob | terminal | walk Herdr splits, on into the next space past the last one (wraps). In Atrium |
 | left knob | elsewhere | the front app's tabs, ⌃Tab / ⌃⇧Tab. In Atrium |
 | left knob press | terminal / elsewhere | zoom split / rcmd's Exposé (right ⌘ + .). In Atrium |
-| right knob | anywhere | volume of whichever office player is playing, else the amplifier (Home Assistant; needs the [Launcher keymap](docs/launcher-keymap.md)) |
-| right knob press | anywhere | play/pause that player |
-| right knob double press | anywhere | pause for three minutes, then resume; a single press resumes early |
-| right knob feedback | anywhere | a bezel in the middle of the screen: the level as a speaker over sixteen blocks, play or pause with the title, the break |
-| right knob (scroll layer) | anywhere | scroll under pointer; press = jump to bottom |
+| right knob | anywhere | volume of whichever office player is playing, else the amplifier (Home Assistant; needs the [Launcher keymap](docs/launcher-keymap.md)). In Atrium |
+| right knob press | anywhere | play/pause that player. In Atrium |
+| right knob double press | anywhere | pause for three minutes, then resume; a single press resumes early. In Atrium |
+| right knob feedback | anywhere | a bezel in the middle of the screen: the level as a speaker over sixteen blocks, play or pause with the title, the break. In Atrium |
+| right knob (scroll layer) | anywhere | scroll under pointer; press = jump to bottom (in Atrium) |
 | 4-finger tap | anywhere | pick a stage from a bezel of all of them, each shown by its apps (←/→ or its letter, return, escape) |
 | ⌘ + 4-finger swipe ←/→ | anywhere | place window left / right half |
 | ⌘ + 4-finger swipe ↑/↓ | anywhere | maximize / centre window |
@@ -295,7 +297,7 @@ genuinely dead host before the next 30s warm tick.
 `hs.ipc` port, so you can interrogate the live router:
 
 ```bash
-hs -c 'return #hs.hotkey.getHotkeys()'  # expect 4 — the right knob's ⌘⌃⌥ keys
+hs -c 'return #hs.hotkey.getHotkeys()'  # expect 0: every key is Atrium's now
 hs -c 'return hs.accessibilityState()'
 ```
 
