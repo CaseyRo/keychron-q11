@@ -8,8 +8,9 @@ shape.
 
 A keypress takes one of four routes:
 
-- **Local.** Tabs, rcmd's Exposé, scrolling and trackpad gestures (all in
-  Atrium; gestures since 26 Nov 2026, COS-308). Nothing leaves the machine.
+- **Local.** Tabs, rcmd's Exposé and scrolling (all in Atrium). Nothing
+  leaves the machine. The trackpad gestures were here too, until they were
+  dropped (COS-308).
 - **Remote.** Workspace and split navigation, carried to the herdr host over
   one multiplexed ssh connection. Atrium runs this route since 25 Nov 2026
   (COS-299); the reasoning on this page still holds for it.
@@ -46,13 +47,13 @@ reading "Claude finished - Vol 55%" is a lie about who did what.
 
 Everything the router draws is a single form, borrowed from Quicksilver: a
 panel of large square panes, each a picture over a label, one line of detail
-beneath. The stage picker is the reason. A stage is a set of apps, and the
+beneath. The stage picker was the reason, until it went with the trackpad
+gestures (COS-308). A stage is a set of apps, and the
 fastest way to tell two apps apart is their icons at a size where they can be
 recognised, which a list row has no room for. Once that form existed, the
 volume step and the play state became one-pane cases of it, and the router
-stopped having unrelated looks. Atrium carries the same form as one reusable
-piece (`Bezel.swift`), with the stage picker in it as the one form that waits
-for a pick; Hammerspoon draws nothing any more, so its startup notice went
+stopped having unrelated looks. Atrium carries the same form as one piece
+(`Bezel.swift`); Hammerspoon draws nothing any more, so its startup notice went
 with the move (COS-308).
 
 ## The ssh master is load bearing, not an optimisation
@@ -81,7 +82,7 @@ to it. A watchdog built on that method never fires, because every diagnostic
 still looks healthy while the tap is dead. The health tick therefore re-arms
 unconditionally instead of asking first. Re-arming a working tap costs
 microseconds, and asking a broken one costs the whole feature. Atrium's taps
-(M2 and M3, the gestures, copy on select in Herdr) follow the same rule.
+(M2 and M3, copy on select in Herdr) follow the same rule.
 
 ## Poll rather than watch
 
@@ -107,8 +108,7 @@ command. When the polling rate moved to Atrium (COS-306) it left
 the menubar used to shell out to `keylight.py`, and Atrium speaks IOKit HID
 natively (`Q11HID.swift`). The backlight followed it into the same client
 (COS-307), and `keylight.py` is gone.
-The same reasoning puts the trackpad and window actions behind the `rcmd`
-binary rather than reimplementing them.
+The same reasoning leaves Exposé to rcmd rather than reimplementing it.
 
 Two writers would also fight for the device. The Launcher already does this:
 an open Launcher tab reads the same interface and can steal a reply, which is
@@ -125,8 +125,7 @@ supported and documented, and the backlight treats an unreachable Home
 Assistant as a reason to fall back to the clock rather than to leave the
 keyboard wrong.
 
-The same instinct covers the gesture layer, which stands down entirely while a
-game owns the trackpad, and the backlight poll, which is a no operation when
+The same instinct covers the backlight poll, which is a no operation when
 the effect already matches so it does not burn a flash write.
 
 ## What is deliberately not solved

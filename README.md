@@ -25,10 +25,10 @@ so if the left encoder works everywhere
 Hammerspoon; the right knob and its bezel followed on 26 Nov 2026
 (`OfficeMusic.swift`, `Bezel.swift`), so Hammerspoon holds no hotkeys any
 more, and the polling-rate menubar the same day (`PollingMenu.swift`), the
-backlight (`HouseLight.swift`) and the trackpad gestures with the stage picker
-(`Trackpad.swift`), then Now Playing (`NowPlaying.swift`, replacing
+backlight (`HouseLight.swift`), then Now Playing (`NowPlaying.swift`, replacing
 `nowplaying.py` and its launchd agent), then copy on select in Herdr and its theme (`HerdrDesk.swift`,
-replacing `bin/herdr-daylight`). Hammerspoon keeps only the Storykeep meeting watcher until it retires (COS-311).
+replacing `bin/herdr-daylight`). The trackpad gestures and the stage picker
+moved too, then were dropped on 26 Nov 2026 (COS-308). Hammerspoon keeps only the Storykeep meeting watcher until it retires (COS-311).
 
 Install steps and the reasoning behind the design are in
 [docs/wiki/quickstart.md](docs/wiki/quickstart.md).
@@ -46,9 +46,6 @@ Install steps and the reasoning behind the design are in
 | right knob double press | anywhere | pause for three minutes, then resume; a single press resumes early. In Atrium |
 | right knob feedback | anywhere | a bezel in the middle of the screen: the level as a speaker over sixteen blocks, play or pause with the title, the break. In Atrium |
 | right knob (scroll layer) | anywhere | scroll under pointer; press = jump to bottom (in Atrium) |
-| 4-finger tap | anywhere | pick a stage from a bezel of all of them, each shown by its apps (←/→ or tab, its letter, return or a click, escape). In Atrium |
-| ⌘ + 4-finger swipe ←/→ | anywhere | place window left / right half. In Atrium |
-| ⌘ + 4-finger swipe ↑/↓ | anywhere | maximize / centre window. In Atrium |
 | Now Playing | office music playing or paused | the office's title and artist are this Mac's Now Playing, so Top Shelf's music widget, Control Center and the play key show and play/pause it, artwork included. In Atrium |
 | backlight | house mode `day`/`away` | off; restored on every other mode, the clock deciding when HA does not answer (1 min poll). In Atrium |
 | Herdr theme | house mode `day` · `evening`/`night` | drenched moss · Cobalt (CDiT); other modes and no HA follow macOS, light → moss, dark → Cobalt (5 min + wake). In Atrium |
@@ -59,90 +56,6 @@ Workspace navigation speaks to **herdr** (a terminal workspace manager)
 over its socket API — optionally on a remote host via multiplexed ssh.
 **No herdr? Everything degrades to plain `Cmd+N` / tab-cycling
 keystrokes** — set `REMOTE = nil` in `hammerspoon/init.lua`.
-
-## Trackpad gestures
-
-These replace a BetterTouchTool preset, so BTT is no longer needed. They
-run in Atrium since 26 Nov 2026 (COS-308): one row each in
-`Gestures.bindings` in `~/dev/atrium/Sources/AtriumCore/Gestures.swift`, with
-the thresholds named below, and the event tap in `Sources/Atrium/Trackpad.swift`.
-Add a direction or change the finger count there.
-
-`⌘` is a preference, not a workaround: every macOS three- and
-four-finger swipe is switched off on this machine
-(`TrackpadThreeFingerVertSwipeGesture = 0`), so nothing competes for the
-bare swipe. A row's `cmd` field picks which one you want.
-
-Three fingers are deliberately left unbound (the old Exposé / show
-desktop swipes fired by accident too often); four fingers do the rest:
-
-| Fingers | Modifier | Territory |
-| --- | --- | --- |
-| 4, tapped | none | pick a stage |
-| 4 | ⌘ | window placement (`rcmd window place`) |
-
-A **stage** is a saved set of windows; with `spaceMode: single` it is what
-this machine uses instead of Spaces, which is why there is only ever one
-Space.
-
-Tapping four fingers lists every stage and activates whichever you pick.
-rcmd's own stage overview is bound to *holding* `caps` and has no CLI
-verb — `rcmd osd` only drives the search surfaces (`app`, `window`,
-`hide`) — and a hold-to-show OSD does not map onto a momentary tap in any
-case. So the list is built from `rcmd stage list --json` and shown in
-Atrium's bezel (`Bezel.swift`), which picks rather than only displays.
-A physical four-finger *click* registers as a tap too: the fingers are
-down, still, and briefly.
-
-A tap is recognised as the absence of a swipe — under `tapTravel` of
-movement, released inside `tapHold`. `tapTravel` sits well below
-`swipeMin`, and the gap between them is a deliberate dead zone so a
-swipe that dies early resolves to nothing rather than to a tap.
-
-Two things are deliberately *not* bound:
-
-- **Closing a stage.** `stageCloseAction` is `close`, so `rcmd stage
-  close` shuts the real windows — including any terminal running an
-  agent. Switching stages is reversible, closing them is not, and no
-  stray gesture should be able to do it.
-- **Saving a stage, and re-applying its placements.** Both are
-  keyboard-only (`stageAssignKey` / `stageRepositionKey` under `caps`)
-  with no CLI equivalent, so a gesture cannot reach them at all.
-
-A swipe fires **the moment it crosses `swipeMin`**, not when the fingers
-lift — waiting for release makes an already-recognisable gesture feel
-like it lagged. One swipe fires one action.
-
-The fingers driving a swipe drive a **scroll** as well, on a separate
-event stream, so the window underneath scrolls for as long as
-recognition takes unless that stream is swallowed too. Both streams are
-suppressed only while a finger count *and* modifier already bound in
-`Gestures.bindings` is in flight, so ordinary two-finger scrolling is never
-touched.
-
-Two more things are worth knowing before tuning this on another trackpad.
-macOS interleaves gesture events that carry **no touches at all** between
-the ones carrying fingers, so treating a zero-touch event as "fingers
-lifted" shatters one swipe into dozens of fragments — the gesture ends on
-a quiet timer (`swipeIdle`) instead. And travel distance varies by
-device, so `swipeMin` and `tapTravel` need measuring rather than
-guessing:
-
-```bash
-defaults write de.cdit.atrium gestureDebug -bool true   # gesture a few times, then:
-grep 'trackpad: fingers' ~/Library/Logs/Atrium.log | tail
-# fingers=3 dx=+0.0050 dy=+0.1840 held=0.18s cmd=false -> swipe
-# fingers=4 dx=+0.0004 dy=-0.0011 held=0.09s cmd=false -> tap
-# fingers=3 dx=+0.0030 dy=+0.0410 held=0.22s cmd=false -> nothing
-```
-
-Set `swipeMin` below the `dy` of a lazy swipe and above the largest
-stray one. The `-> nothing` rows are the ones that landed in the dead
-zone between `tapTravel` and `swipeMin`; a gesture you meant showing up
-there is the signal to move one of the two. `swift test` in `~/dev/atrium`
-(`GesturesTests.swift`) checks the direction classifier, the tap thresholds
-and the scroll swallow without needing a trackpad. `defaults delete
-de.cdit.atrium gestureDebug` turns the log lines off again.
 
 ## The protocol discovery
 
@@ -315,11 +228,6 @@ Everything is a constant near the top of a small file:
 - `~/dev/atrium/Sources/Atrium/Keys.swift` — terminal apps, herdr host,
   and `timeout` (ceiling on one remote call before it falls back to a
   local keystroke)
-- `~/dev/atrium/Sources/Atrium/Trackpad.swift` — `muteApps`: bundle IDs of apps
-  that own the trackpad (games), for which the gesture layer stands down
-  while frontmost. Ships with Factorio and Steam; find an app's ID with
-  `osascript -e 'id of app "Name"'` — a game launched through Steam needs
-  its own entry
 - `~/dev/atrium/Sources/AtriumCore/Backlight.swift` — which house modes go
   dark, clock fallback hours, fallback effect
 

@@ -3,11 +3,11 @@
 Host side control for a Keychron Q11 Ultra 8K on macOS.
 
 It is moving into Atrium (`~/dev/atrium`), one native app, piece by piece (COS-299).
-M1–M5, both knobs, the bezel, the polling-rate menubar, the backlight and the
-trackpad gestures with the stage picker, Now Playing, copy on select in Herdr and its
-theme already live there (`Sources/Atrium/Keys.swift`, `OfficeMusic.swift`, `Bezel.swift`,
-`PollingMenu.swift` and `HouseLight.swift` over `Q11HID.swift`, `Trackpad.swift`,
-`NowPlaying.swift`, `HerdrDesk.swift`); Hammerspoon keeps only the Storykeep meeting
+M1–M5, both knobs, the bezel, the polling-rate menubar, the backlight, Now Playing,
+copy on select in Herdr and its theme already live there (`Sources/Atrium/Keys.swift`,
+`OfficeMusic.swift`, `Bezel.swift`, `PollingMenu.swift` and `HouseLight.swift` over
+`Q11HID.swift`, `NowPlaying.swift`, `HerdrDesk.swift`). The trackpad gestures were
+dropped (COS-308); Hammerspoon keeps only the Storykeep meeting
 watcher until it retires (COS-311).
 
 ## Read the wiki before exploring source
@@ -37,8 +37,8 @@ consequences worth knowing before you edit:
 - Do not kill a hung `hs -c` and carry on: the dead client leaves the port
   broken until the next reload. `pkill -f '^hs -c'`, then
   `touch hammerspoon/init.lua` and wait again.
-- Every key, the bezel and the gestures are Atrium's now: grep `keys:`,
-  `music:`, `trackpad:` and `herdr:` in `~/Library/Logs/Atrium.log`.
+- Every key and the bezel are Atrium's now: grep `keys:`, `music:` and
+  `herdr:` in `~/Library/Logs/Atrium.log`.
 
 Check a live router with `hs -c`, which the config deliberately exposes:
 
@@ -50,7 +50,7 @@ hs -c 'return hs.accessibilityState()'
 ## Run the self checks before committing
 
 ```bash
-(cd ~/dev/atrium && swift test)   # pane ring, office music, Now Playing, polling, backlight, gestures, Herdr theme, in Atrium
+(cd ~/dev/atrium && swift test)   # pane ring, office music, Now Playing, polling, backlight, Herdr theme, in Atrium
 ```
 
 There is no build. These are the gate.
