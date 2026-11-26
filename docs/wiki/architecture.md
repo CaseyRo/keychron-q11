@@ -80,8 +80,8 @@ reports Hammerspoon's flag rather than whether the system still routes events
 to it. A watchdog built on that method never fires, because every diagnostic
 still looks healthy while the tap is dead. The health tick therefore re-arms
 unconditionally instead of asking first. Re-arming a working tap costs
-microseconds, and asking a broken one costs the whole feature. Atrium's tap
-for M2 and M3 follows the same rule.
+microseconds, and asking a broken one costs the whole feature. Atrium's taps
+(M2 and M3, the gestures, copy on select in Herdr) follow the same rule.
 
 ## Poll rather than watch
 

@@ -3,7 +3,7 @@
 Host side control for a Keychron Q11 Ultra 8K on macOS. The keyboard sends
 plain F13 to F20 signals, bound once in Keychron Launcher. On the Mac,
 Atrium (`~/dev/atrium`) handles M1–M5, both knobs, the polling rate, the
-backlight following the house and the office music as Now Playing, and a Hammerspoon router handles the rest. The Hammerspoon half moves into Atrium piece by piece (COS-299).
+backlight following the house, the office music as Now Playing, the trackpad gestures, copy on select in Herdr and its theme. Hammerspoon keeps only the Storykeep meeting watcher until it retires (COS-311).
 
 ## Shortest path
 
