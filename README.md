@@ -210,8 +210,8 @@ also explains the macOS traps below, learned the hard way.
    F20; the OS silently drops those HID usages. Your effective bare-key
    budget is F13–F20 — extend with modifier combos (`LCAG(KC_F18)`).
 2. **Bare F14/F15 are legacy display-brightness keys.** They never reach
-   normal hotkey APIs; this config captures them with an event tap that
-   swallows the keypress.
+   normal hotkey APIs; Atrium captures them with an event tap that
+   swallows the keypress (`Keys.swift` in `~/dev/atrium`).
 3. **macOS disables event taps behind your back, and
    `hs.eventtap:isEnabled()` will not tell you.** That method reports
    Hammerspoon's own flag, not whether the OS still routes events to the
@@ -219,7 +219,8 @@ also explains the macOS traps below, learned the hard way.
    every diagnostic still looks healthy — enabled `true`, Accessibility
    granted, all hotkeys bound — and M2/M3 quietly revert to adjusting
    brightness. A watchdog that *checks* `isEnabled()` therefore never
-   fires; `q11Health` re-arms unconditionally every 30s instead.
+   fires; Atrium re-arms its tap unconditionally every 30s instead, as
+   Hammerspoon's `q11Health` did before the M-keys moved (COS-299).
 4. **A USB device behind a Thunderbolt dock is invisible to
    `hs.usb.watcher`.** It delivered not one event for the 2.4G receiver
    across a full unplug and replug — no error in the console, and the
@@ -235,11 +236,12 @@ also explains the macOS traps below, learned the hard way.
 ## Troubleshooting
 
 **M2/M3 changed the screen brightness instead of switching workspace.**
-Trap 3. It self-heals within 30s. To confirm rather than wait:
-`hs -c 'q11MTap:stop():start()'`. Note that the encoder still working
-does *not* mean the tap is fine — encoders go through `hs.hotkey.bind`,
-a different mechanism, so "encoder fine, M-keys dead" points straight at
-the tap.
+Trap 3. It self-heals within 30s. If it does not, check
+`grep 'keys:' ~/Library/Logs/Atrium.log` for `no F14/F15 tap`, which
+means Atrium lost Accessibility, and quitting and reopening Atrium arms
+the tap again. Note that the knob still working does *not* mean the tap
+is fine — the knob and M1/M4/M5 are registered hotkeys, a different
+mechanism, so "knob fine, M2/M3 dead" points straight at the tap.
 
 **Keys respond slowly, or seem to do nothing, only inside the terminal.**
 Every M-key and left-encoder action in a terminal goes over ssh to the
@@ -260,7 +262,7 @@ always passes and hides the bug:
 ssh -O check -o "ControlPath=/tmp/keychron-q11-%r@%n" <host>
 ```
 
-`q11Health` now rebuilds the master every 30s, so this should no longer
+Atrium rebuilds the master every 30s, so this should no longer
 bite: a dead master costs 30s of staleness instead of every terminal
 keypress until something happens to warm it. Before that, the failure was
 silent and looked exactly like broken hardware — the encoder still moved
@@ -275,7 +277,7 @@ The warm runs in Atrium now, which logs each failure:
 grep 'keys:' ~/Library/Logs/Atrium.log   # failed warms, missing taps or hotkeys
 ```
 
-Four settings make that hold, all in `SSH_OPTS`: `ControlPersist=yes`
+Four settings make that hold, all in `sshOpts` in Atrium's `Keys.swift`: `ControlPersist=yes`
 (a finite value lapses during any normal pause, and the next press pays a
 cold handshake), `ControlPath=…%n` (`%n` is the name as typed — `%h` is
 the *resolved* address, which Tailscale changes on a direct↔DERP switch,
@@ -285,8 +287,8 @@ host hangs straight past it) — the last two held **slack, at 10s/3**.
 They were 2s/2, which tore the master down after four seconds of stall:
 easy for a Tailscale reroute or a loaded remote, and every teardown put
 the next terminal press on the ~2.6s cold path. They bound nothing a press
-depends on, because `herdr()` already kills a stalled call at
-`HERDR_TIMEOUT`; they only have to outlive a hiccup and still notice a
+depends on, because `herdr()` already kills a stalled call after 3s
+(`timeout` in `Keys.swift`); they only have to outlive a hiccup and still notice a
 genuinely dead host before the next 30s warm tick.
 
 **Nothing responds and you want to know why.** The config opens an
@@ -305,9 +307,10 @@ model.
 
 Everything is a constant near the top of a small file:
 
-- `hammerspoon/init.lua` — terminal apps, herdr host (or `nil`),
-  `HERDR_TIMEOUT` (ceiling on one remote call before it
-  falls back to a local keystroke), and `MUTE_APPS`: bundle IDs of apps
+- `~/dev/atrium/Sources/Atrium/Keys.swift` — terminal apps, herdr host,
+  and `timeout` (ceiling on one remote call before it falls back to a
+  local keystroke)
+- `hammerspoon/init.lua` — `MUTE_APPS`: bundle IDs of apps
   that own the trackpad (games), for which the gesture layer stands down
   while frontmost. Ships with Factorio and Steam; find an app's ID with
   `osascript -e 'id of app "Name"'` — a game launched through Steam needs
