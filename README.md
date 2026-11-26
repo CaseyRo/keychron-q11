@@ -24,7 +24,7 @@ so if the left encoder works everywhere
 [Atrium](../atrium) (`Sources/Atrium/Keys.swift`), a native app, instead of
 Hammerspoon; the right knob and its bezel followed on 26 Nov 2026
 (`OfficeMusic.swift`, `Bezel.swift`), so Hammerspoon holds no hotkeys any
-more. The rest follows piece by piece; until then both run.
+more, and the polling-rate menubar the same day (`PollingMenu.swift`). The rest follows piece by piece; until then both run.
 
 Install steps and the reasoning behind the design are in
 [docs/wiki/quickstart.md](docs/wiki/quickstart.md).
@@ -49,7 +49,7 @@ Install steps and the reasoning behind the design are in
 | backlight | house mode `day`/`away` | off; restored on every other mode (launchd, 10 min poll) |
 | Herdr theme | house mode `day`/`away` · `evening` · `night` | light · medium · dark Cobalt×CDiT; other modes follow macOS (`bin/herdr-daylight`, 5 min + wake) |
 | mouse select in Herdr | Herdr | copies the selection, like Warp |
-| bolt menubar item | anywhere | show / switch the 2.4G polling rate, 125–8000 Hz |
+| bolt menubar item | anywhere | shows the 2.4G polling rate; its menu sets either transport, 125–8000 Hz, over IOKit HID. In Atrium |
 
 Workspace navigation speaks to **herdr** (a terminal workspace manager)
 over its socket API — optionally on a remote host via multiplexed ssh.
@@ -229,11 +229,11 @@ also explains the macOS traps below, learned the hard way.
    callback's field name was right (`hs.usb.attachedDevices()` reports
    the same `vendorID` the callback tested). A dock hangs its ports off a
    different USB controller than a root port, and the IOKit notifications
-   Hammerspoon subscribes to do not reach that far. Poll
-   `hs.usb.attachedDevices()` instead: the polling-rate menubar checks
-   presence on the same 30s tick as trap 3's re-arm, and only shells out
-   when presence actually flips. Costs at-most-30s latency, which beats a
-   mechanism that is silent.
+   Hammerspoon subscribes to do not reach that far. Poll instead: the
+   polling-rate menubar, in Atrium since 26 Nov 2026 (COS-306,
+   `PollingMenu.swift`), asks IOKit for the keyboard's HID interface every
+   30s and only talks to the keyboard when presence actually flips. Costs
+   at-most-30s latency, which beats a mechanism that is silent.
 
 ## Troubleshooting
 

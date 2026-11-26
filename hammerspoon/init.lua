@@ -11,19 +11,16 @@ require("hs.ipc") -- `hs -c "..."` introspection; first, so a later throw is dia
 -- ── config ──────────────────────────────────────────────────────────────
 -- M1–M5 and the left knob (F13–F20) moved to Atrium (~/dev/atrium, Keys.swift)
 -- on 25 Nov 2026, COS-299; the right knob, its ⌘⌃⌥ keys and the office music
--- followed on 26 Nov 2026, COS-305 (OfficeMusic.swift, Bezel.swift). This file
+-- followed on 26 Nov 2026, COS-305 (OfficeMusic.swift, Bezel.swift), and the
+-- polling-rate menubar the same day, COS-306 (PollingMenu.swift). This file
 -- keeps the rest, and no hotkeys, until it moves too.
 -- Herdr desktop, for copy on select below.
 local HERDR_APP_ID = "dev.herdr.app"
 local HERDR_APP = os.getenv("HOME") .. "/.local/bin/herdr-app"
--- This repo, and uv, for the polling-rate menubar: it shells out to
--- keylight.py because Lua has no hidapi. Absolute, because hs.task gets no
--- PATH. Spelled out rather than derived from hs.configdir: install.sh symlinks
--- ~/.hammerspoon to this directory, so `hs.configdir .. "/.."` does reach the
--- repo — but only for a symlinked install, and it breaks silently for a copied
--- one. A constant is one line and cannot be wrong.
+-- This repo, for bin/herdr-daylight below. Spelled out rather than derived
+-- from hs.configdir: install.sh symlinks ~/.hammerspoon to this directory, so
+-- `hs.configdir .. "/.."` reaches the repo only for a symlinked install.
 local REPO = os.getenv("HOME") .. "/dev/keychron-q11"
-local UV = "/opt/homebrew/bin/uv"
 -- Apps that own the trackpad outright, by bundle ID. Games read raw finger
 -- movement, so the gesture layer stands down while one is frontmost. Read a
 -- real ID rather than guessing — by name, since asking for the frontmost app
@@ -199,78 +196,6 @@ q11Muted = muteApp(hs.application.frontmostApplication())
 q11AppWatcher = hs.application.watcher.new(function(_, event, app)
   if event == hs.application.watcher.activated then q11Muted = muteApp(app) end
 end):start()
-
--- ── polling-rate menubar ────────────────────────────────────────────────
--- The board keeps separate polling rates for cable and 2.4G and only the
--- wireless one costs battery, so this switches that one. keylight.py owns the
--- HID side — same shell-out discipline as rcmd below, and it keeps one writer
--- for the keyboard rather than a second implementation in Lua.
-local POLL_RATES = { 8000, 4000, 2000, 1000, 500, 250, 125 }
-
-local function keylight(args, done)
-  local argv = { "run", REPO .. "/backlight/keylight.py" }
-  for _, v in ipairs(args) do argv[#argv + 1] = v end
-  hs.task.new(UV, function(code, out) done(code == 0 and out or nil) end, argv):start()
-end
-
-q11PollBar = hs.menubar.new() -- global: a local would be GC'd and vanish
--- A drawn bolt, not a Unicode glyph: as a template image the menu bar tints it
--- itself, so it is right on a light bar, a dark one and when highlighted.
-q11PollBar:setIcon(hs.canvas.new({ x = 0, y = 0, w = 16, h = 16 }):appendElements({
-  type = "segments", closed = true, action = "fill", fillColor = { black = 1 },
-  coordinates = {
-    { x = 9.5, y = 0.5 }, { x = 3, y = 9 }, { x = 7.5, y = 9 },
-    { x = 6, y = 15.5 }, { x = 13, y = 6.5 }, { x = 8.5, y = 6.5 },
-  },
-}):imageFromCanvas(), true)
-
--- Global, like q11SwipeReport: `hs -c 'q11PollRefresh()'` re-reads on demand
--- rather than waiting out the timer — which is what you want the moment the
--- title reads "?" and you are asking whether the keyboard or the code is at
--- fault.
-function q11PollRefresh()
-  if not q11PollBar then return end
-  keylight({ "polling" }, function(out)
-    -- rf=, not wired=: the cable rate is not what drains the battery.
-    local hz = out and tonumber(out:match("rf=(%d+)"))
-    if not q11PollBar then return end
-    q11PollBar:setTitle(hz
-      and (hz >= 1000 and math.floor(hz / 1000) .. "K" or tostring(hz))
-      or "?") -- keyboard asleep or Launcher holding the interface
-    local menu = {}
-    for _, r in ipairs(POLL_RATES) do
-      menu[#menu + 1] = {
-        title = r .. " Hz",
-        checked = hz == r,
-        fn = function()
-          keylight({ "polling", "2.4g", tostring(r) }, function() q11PollRefresh() end)
-        end,
-      }
-    end
-    q11PollBar:setMenu(menu)
-  end)
-end
-q11PollRefresh()
--- The Launcher can change the rate behind our back; re-read occasionally so a
--- stale title does not lie. Ten minutes, because spawning uv is not free and
--- this value changes about never.
-q11PollTimer = hs.timer.doEvery(600, q11PollRefresh)
-
--- The receiver gets unplugged often on this machine, and the ten-minute timer
--- alone would leave the title wrong for most of every reconnect. Presence is
--- polled on the health tick below rather than watched: hs.usb.watcher never
--- delivered a single event for this dongle, which lives in a Thunderbolt dock
--- and so hangs off a different USB controller than a root-port device. A table
--- scan every 30s is duller than debugging IOKit notification delivery, and it
--- does not care where the dongle is plugged in.
-local RECEIVER_VID = 0x3434 -- Keychron; the dongle is 0xd028, the board 0x12b2
-local function receiverPresent()
-  for _, d in ipairs(hs.usb.attachedDevices() or {}) do
-    if d.vendorID == RECEIVER_VID then return true end
-  end
-  return false
-end
-q11ReceiverSeen = receiverPresent()
 
 -- ── trackpad gestures ───────────────────────────────────────────────────
 -- Replaces the BetterTouchTool preset this machine used to run. macOS's own
@@ -578,8 +503,6 @@ function hs.shutdownCallback()
   if q11Watcher then q11Watcher:stop() end
   if q11AppWatcher then q11AppWatcher:stop() end
   if q11Health then q11Health:stop() end
-  if q11PollTimer then q11PollTimer:stop() end
-  if q11PollBar then q11PollBar:delete() end
 end
 
 -- macOS silently disables event taps and isEnabled() keeps reporting true, so a
@@ -623,14 +546,6 @@ q11Health = hs.timer.doEvery(30, function()
     -- a re-arm mid-swipe would leave the next event mis-anchored
     if q11SwipeTimer then q11SwipeTimer:stop() end
     q11Swipe, q11SwipeTimer = nil, nil
-  end
-  -- Only spawns uv when presence actually flips, so the steady state costs a
-  -- table scan. The HID interfaces trail the USB device on plug-in, hence the
-  -- delay before asking the keyboard anything.
-  local present = receiverPresent()
-  if present ~= q11ReceiverSeen then
-    q11ReceiverSeen = present
-    hs.timer.doAfter(present and 1.5 or 0, q11PollRefresh)
   end
 end)
 

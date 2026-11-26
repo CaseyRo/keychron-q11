@@ -91,15 +91,20 @@ the right one.
 
 The rule this leaves behind: when a notification mechanism can be absent
 without saying so, poll for the state instead. Presence is checked on the
-health tick that already runs, and only shells out when presence actually
-changes, so the steady state costs a table scan. The cost is up to thirty
+health tick that already runs, and only talks to the keyboard when presence
+actually changes, so the steady state costs one query. Atrium's polling-rate
+menubar keeps this rule: it asks IOKit for the interface every thirty seconds
+rather than subscribing to its notifications. The cost is up to thirty
 seconds of latency, which beats a mechanism that is silent.
 
 ## One writer for the keyboard
 
-Lua has no hidapi, so the menubar shells out to `keylight.py` rather than
-growing a second HID implementation. That keeps one writer, one place where
-report framing lives, and one place to fix when the protocol notes change.
+Each HID command has one writer, so report framing lives in one place per
+command. When the polling rate moved to Atrium (COS-306) it left
+`keylight.py` rather than being written twice: Lua had no hidapi, which is why
+the menubar used to shell out to `keylight.py`, and Atrium speaks IOKit HID
+natively (`Q11HID.swift`). The backlight follows it into the same client
+next, after which `keylight.py` has no HID left.
 The same reasoning puts the trackpad and window actions behind the `rcmd`
 binary rather than reimplementing them.
 

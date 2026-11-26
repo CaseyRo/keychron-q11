@@ -3,8 +3,9 @@
 Host side control for a Keychron Q11 Ultra 8K on macOS.
 
 It is moving into Atrium (`~/dev/atrium`), one native app, piece by piece (COS-299).
-M1–M5, both knobs and the right knob's bezel already live there
-(`Sources/Atrium/Keys.swift`, `OfficeMusic.swift`, `Bezel.swift`); the rest of
+M1–M5, both knobs, the right knob's bezel and the polling-rate menubar already
+live there (`Sources/Atrium/Keys.swift`, `OfficeMusic.swift`, `Bezel.swift`,
+`PollingMenu.swift` over `Q11HID.swift`); the rest of
 this repo still runs until it moves too.
 
 ## Read the wiki before exploring source
@@ -43,16 +44,15 @@ Check a live router with `hs -c`, which the config deliberately exposes:
 ```bash
 hs -c 'return #hs.hotkey.getHotkeys()'   # expect 0, every key is Atrium's
 hs -c 'return hs.accessibilityState()'
-hs -c 'q11PollRefresh()'                 # re-read the polling rate now
 ```
 
 ## Run the self checks before committing
 
 ```bash
-uv run backlight/keylight.py selftest    # parsing, backlight, polling rules
+uv run backlight/keylight.py selftest    # parsing, backlight rules
 uv run nowplaying/nowplaying.py selftest # Home Assistant answer parsing
 hs -c 'return q11SwipeSelfTest()'        # swipe, tap and scroll swallow
-(cd ~/dev/atrium && swift test)          # pane ring and office music parsing, in Atrium
+(cd ~/dev/atrium && swift test)          # pane ring, office music, polling packets, in Atrium
 ```
 
 There is no build. These are the gate.
@@ -72,8 +72,8 @@ holds the same interface and steals replies, which is why reads retry.
 
 | Path | What it is |
 | --- | --- |
-| `hammerspoon/init.lua` | the router's rest: gestures, stage picker, menubar, copy on select |
-| `backlight/keylight.py` | HID client: backlight and polling rate |
+| `hammerspoon/init.lua` | the router's rest: gestures, stage picker, copy on select |
+| `backlight/keylight.py` | HID client: backlight (the polling rate is Atrium's) |
 | `nowplaying/nowplaying.py` | launchd agent: office music as macOS Now Playing |
 | `bin/q11-herdr` | runs on the remote host, not this one |
 | `docs/` | protocol notes, keymap, wiki |
